@@ -1,10 +1,9 @@
-from django.core.management.base import BaseCommand
 import requests
 import time
 from datetime import datetime, timezone
 from accounts.models import CustomUser
 from django.core.management.base import BaseCommand, CommandError
-from logs.models import Log
+from logs.models import Log, Problem
 class Command(BaseCommand):
     def add_arguments(self,parser):
         parser.add_argument("atcoder_username")
@@ -57,6 +56,11 @@ class Command(BaseCommand):
             ac_submissions = [s for s in submissions_of_problem if s["result"] == "AC"]
             last_submitted_second=max(s["epoch_second"] for s in submissions_of_problem)
             last_submitted_date=datetime.fromtimestamp(last_submitted_second, tz=timezone.utc)
+            try:
+                problem = Problem.objects.get(problem_id=problem_id)
+            except Problem.DoesNotExist:
+                self.stderr.write(f"問題マスタに {problem_id} がありません。スキップします")
+                continue
             if ac_submissions:
                 first_ac_second = min(s["epoch_second"] for s in ac_submissions)
                 first_ac_date = datetime.fromtimestamp(first_ac_second, tz=timezone.utc)
@@ -65,13 +69,14 @@ class Command(BaseCommand):
             contest_id=submissions_of_problem[0]["contest_id"]
             log, created = Log.objects.update_or_create(
                 user=user,
-                problem_id=problem_id,
+                problem=problem,
                 defaults={
-                    "contest_id": contest_id,
+                    "submitted_contest_id": submissions_of_problem[0]["contest_id"],
                     "is_correct": is_correct,
                     "first_ac_date": first_ac_date,
                     "last_submitted_date": last_submitted_date,
-                    "problem_name": problem_id, 
                 },
             )
-            self.stdout.write(f"{contest_id} {problem_id} : {is_correct} , {first_ac_date} , last_sub={last_submitted_date}")
+            self.stdout.write(f"{contest_id} {problem} : {is_correct} , {first_ac_date} , last_sub={last_submitted_date}")
+
+
