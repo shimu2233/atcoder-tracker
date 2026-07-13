@@ -6,6 +6,7 @@ class Problem(models.Model):
     difficulty=models.FloatField(null=True,blank=True)
     is_experimental=models.BooleanField(default=False)
     updated_at=models.DateTimeField(auto_now=True)
+    display_difficulty=models.FloatField(null=True, blank=True)
     def __str__(self):
         return self.problem_name
 class Tag(models.Model):

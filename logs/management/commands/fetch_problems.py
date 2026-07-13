@@ -2,6 +2,7 @@ import requests
 import time
 from django.core.management.base import BaseCommand
 from logs.models import Problem
+import math
 class Command(BaseCommand):
     def handle(self, *args, **options):
         headers = {
@@ -18,21 +19,27 @@ class Command(BaseCommand):
         for p in problems:
             pid = p["id"]
             model = problem_models.get(pid, {})
-            
+            difficulty = model.get("difficulty") 
+            if difficulty is None:
+                display = None
+            elif difficulty >= 400:
+                display = round(difficulty)
+            else:
+                display = round(400 / math.exp(1.0 - difficulty / 400))
             problem_objects.append(
                 Problem(
                     problem_id=pid,
                     problem_name=p["name"],
                     contest_id=p["contest_id"],
-                    difficulty=model.get("difficulty"),
+                    difficulty=difficulty,
+                    display_difficulty=display,
                     is_experimental=model.get("is_experimental", False),
                 )
             )
-
         Problem.objects.bulk_create(
             problem_objects,
             update_conflicts=True,
-            update_fields=["problem_name", "contest_id", "difficulty", "is_experimental"],
+            update_fields=["problem_name", "contest_id", "difficulty" , "display_difficulty", "is_experimental"],
             unique_fields=["problem_id"],
         )
 
