@@ -3,6 +3,7 @@ class Problem(models.Model):
     problem_id=models.CharField(max_length=50,primary_key=True)
     problem_name=models.CharField(max_length=200)
     contest_id=models.CharField(max_length=50)
+    category = models.CharField(max_length=50, blank=True)
     difficulty=models.FloatField(null=True,blank=True)
     is_experimental=models.BooleanField(default=False)
     updated_at=models.DateTimeField(auto_now=True)

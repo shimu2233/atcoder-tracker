@@ -1,1 +1,119 @@
-<h>見出し</h>
+<h1>ダッシュボード</h1>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{ chart_labels|json_script:"chart-labels" }}
+{{ chart_attempt_rates|json_script:"chart-attempt-rates" }}
+{{ chart_ac_rates|json_script:"chart-ac-rates" }}
+<h2>分野別の成績（常設コンテスト）</h2>
+<canvas id="categoryChart" width="400" height="400"></canvas>
+<script>
+    const labels = JSON.parse(document.getElementById("chart-labels").textContent);
+    const attemptRates = JSON.parse(document.getElementById("chart-attempt-rates").textContent);
+    const acRates = JSON.parse(document.getElementById("chart-ac-rates").textContent);
+
+    new Chart(document.getElementById("categoryChart"), {
+        type: "radar",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "着手率(%)",
+                    data: attemptRates,
+                    borderColor: "rgba(54, 162, 235, 1)",
+                    backgroundColor: "rgba(54, 162, 235, 0.2)",
+                },
+                {
+                    label: "AC率(%)",
+                    data: acRates,
+                    borderColor: "rgba(255, 99, 132, 1)",
+                    backgroundColor: "rgba(255, 99, 132, 0.2)",
+                },
+            ],
+        },
+        options: {
+            scales: {
+                r: {
+                    min: 0,
+                    max: 100,
+                },
+            },
+        },
+    });
+</script>
+<table>
+    <thead>
+        <tr>
+            <th>分野</th>
+            <th>全問題数</th>
+            <th>着手</th>
+            <th>AC</th>
+            <th>着手率</th>
+            <th>AC率</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stat in category_stats %}
+        <tr>
+            <td>{{ stat.category }}</td>
+            <td>{{ stat.total }}</td>
+            <td>{{ stat.attempted }}</td>
+            <td>{{ stat.ac }}</td>
+            <td>{{ stat.attempt_rate }}%</td>
+            <td>{{ stat.ac_rate }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<h2>難易度帯別の成績（通常コンテスト）</h2>
+{{ difficulty_labels|json_script:"difficulty-labels" }}
+{{ difficulty_ac_rates|json_script:"difficulty-ac-rates" }}
+{{ difficulty_totals|json_script:"difficulty-totals" }}
+
+<canvas id="difficultyChart" width="600" height="300"></canvas>
+
+<script>
+    const diffLabels = JSON.parse(document.getElementById("difficulty-labels").textContent);
+    const diffAcRates = JSON.parse(document.getElementById("difficulty-ac-rates").textContent);
+    const diffTotals = JSON.parse(document.getElementById("difficulty-totals").textContent);
+
+    new Chart(document.getElementById("difficultyChart"), {
+        type: "bar",
+        data: {
+            labels: diffLabels,
+            datasets: [
+                {
+                    label: "AC率(%)",
+                    data: diffAcRates,
+                    backgroundColor: "rgba(75, 192, 192, 0.6)",
+                },
+            ],
+        },
+        options: {
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                },
+            },
+        },
+    });
+</script>
+<table>
+    <thead>
+        <tr>
+            <th>難易度帯</th>
+            <th>提出</th>
+            <th>AC</th>
+            <th>AC率</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stat in difficulty_stats %}
+        <tr>
+            <td>{{ stat.band }}</td>
+            <td>{{ stat.total }}</td>
+            <td>{{ stat.ac }}</td>
+            <td>{{ stat.ac_rate }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
