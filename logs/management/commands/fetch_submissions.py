@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from accounts.models import CustomUser
 from django.core.management.base import BaseCommand, CommandError
 from logs.models import Log, Problem
+from logs.services import sync_submissions
 class Command(BaseCommand):
     def add_arguments(self,parser):
         parser.add_argument("atcoder_username")
@@ -13,7 +14,12 @@ class Command(BaseCommand):
             user = CustomUser.objects.get(username=app_username)
         except CustomUser.DoesNotExist:
             raise CommandError(f"ユーザー '{app_username}' が見つかりません")
-
+        result = sync_submissions(user)
+        if "error" in result:
+            raise CommandError(result["error"])
+        self.stdout.write(self.style.SUCCESS(
+            f"完了: 新規 {result['created']}件 / 更新 {result['updated']}件"
+        ))
         atcoder_name = user.atcoder_username
         if not atcoder_name:
             raise CommandError(f"ユーザー '{app_username}' に AtCoder ユーザー名が設定されていません")
@@ -59,7 +65,6 @@ class Command(BaseCommand):
             try:
                 problem = Problem.objects.get(problem_id=problem_id)
             except Problem.DoesNotExist:
-                self.stderr.write(f"問題マスタに {problem_id} がありません。スキップします")
                 continue
             if ac_submissions:
                 first_ac_second = min(s["epoch_second"] for s in ac_submissions)
@@ -77,6 +82,5 @@ class Command(BaseCommand):
                     "last_submitted_date": last_submitted_date,
                 },
             )
-            self.stdout.write(f"{contest_id} {problem} : {is_correct} , {first_ac_date} , last_sub={last_submitted_date}")
 
 

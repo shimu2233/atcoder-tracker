@@ -4,15 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AtCoder演習分析{% endblock %}</title>
+    <style>
+        body {
+            font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 16px 40px;
+            color: #333;
+            background: #fff;
+            line-height: 1.6;
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 12px 0;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        nav a {
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        nav form {
+            margin-left: auto;
+        }
+
+        nav button {
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        nav button:hover {
+            background: #e8e8e8;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 24px 0 16px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin: 28px 0 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        a {
+            color: #0066cc;
+        }
+
+        canvas {
+            margin: 16px 0;
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
     <nav>
         {% if user.is_authenticated %}
             <a href="{% url 'dashboard' %}">ダッシュボード</a> |
-            <a href="{% url 'log_list' %}">記録一覧</a> |
             <a href="{% url 'tessoku' %}">鉄則本</a> |
             <a href="{% url 'contest_problems' %}">コンテスト</a> |
             <a href="{% url 'daily_training' %}">デイリー</a> |
+            <a href="{% url 'settings' %}">設定</a>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit">ログアウト</button>
