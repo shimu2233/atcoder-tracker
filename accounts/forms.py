@@ -15,4 +15,5 @@ class SignupForm(UserCreationForm):
         self.fields['password1'].label = 'パスワード'
         self.fields['password2'].label = 'パスワード（確認）'
         self.fields['password1'].help_text = '8文字以上で、数字だけにならないようにしてください。'
+        self.fields['email'].help_text = '入力は不要です'
 
