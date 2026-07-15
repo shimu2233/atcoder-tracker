@@ -27,6 +27,8 @@ def update_tags(request, log_id):
         log.tags.set(tag_ids)
     
     return redirect("log_list")
+class TopView(TemplateView):
+    template_name = "logs/top.html"
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "logs/dashboard.html"
 
@@ -131,3 +133,150 @@ class UntaggedLogListView(LogListView):
 class UntaggedLogListView(LogListView):
     def get_queryset(self):
         return super().get_queryset().filter(tags__isnull=True, problem__category="")
+class TessokuView(LoginRequiredMixin, TemplateView):
+    template_name = "logs/tessoku.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        my_logs = {}
+        for log in Log.objects.filter(user=user).select_related("problem"):
+            my_logs[log.problem_id] = log
+        from collections import defaultdict
+        by_category = defaultdict(list)
+
+        problems = Problem.objects.exclude(category="").order_by("problem_id")
+        for problem in problems:
+            log = my_logs.get(problem.problem_id)
+            if log is None:
+                status = "未提出"
+                status_order = 0
+            elif log.is_correct:
+                status = "AC済み"
+                status_order = 2
+            else:
+                status = "未AC"
+                status_order = 1
+
+            by_category[problem.category].append({
+                "problem": problem,
+                "status": status,
+                "status_order": status_order,
+                "url": f"https://atcoder.jp/contests/{problem.contest_id}/tasks/{problem.problem_id}",
+            })
+        category_problems = {}
+        for category, items in by_category.items():
+            category_problems[category] = sorted(items, key=lambda x: x["status_order"])
+
+        context["category_problems"] = category_problems
+        return context
+
+class ContestProblemsView(LoginRequiredMixin, TemplateView):
+    template_name = "logs/contest_problems.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        logs = (
+            Log.objects
+            .filter(user=user, problem__category="")
+            .select_related("problem")
+        )
+
+        log_by_pid = {log.problem_id: log for log in logs}
+
+        attempted_contest_ids = {
+            log.problem.contest_id
+            for log in logs
+            if not log.problem.contest_id.startswith("adt_")   
+        }
+
+        all_problems = (
+            Problem.objects
+            .filter(contest_id__in=attempted_contest_ids, category="")
+            .order_by("problem_id")
+        )
+
+        from collections import defaultdict
+        by_index = defaultdict(list)
+
+        for problem in all_problems:
+            log = log_by_pid.get(problem.problem_id)
+            if log is None:
+                status = "未提出"
+                status_order = 1
+            elif log.is_correct:
+                status = "AC済み"
+                status_order = 2
+            else:
+                status = "未AC"
+                status_order = 0
+
+            by_index[problem.problem_index].append({
+                "problem": problem,
+                "status": status,
+                "status_order": status_order,
+                "url": f"https://atcoder.jp/contests/{problem.contest_id}/tasks/{problem.problem_id}",
+            })
+
+        index_problems = {}
+        for index in sorted(by_index.keys()):
+            index_problems[index] = sorted(by_index[index], key=lambda x: x["status_order"])
+
+        context["index_problems"] = index_problems
+        return context
+class DailyTrainingView(LoginRequiredMixin, TemplateView):
+    template_name = "logs/daily_training.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        my_logs = {}
+        for log in Log.objects.filter(user=user).select_related("problem"):
+            my_logs[log.problem_id] = log
+
+        attempted_contest_ids = {
+            log.problem.contest_id
+            for log in Log.objects.filter(user=user).select_related("problem")
+            if log.problem.contest_id.startswith("adt_")
+        }
+
+        problems = (
+            Problem.objects
+            .filter(contest_id__in=attempted_contest_ids)
+            .order_by("problem_id")
+        )
+
+        from collections import defaultdict
+        by_label = defaultdict(list)
+
+        for problem in problems:
+            parts = problem.contest_id.split("_")
+            label = parts[1] if len(parts) > 1 else "その他"
+
+            log = my_logs.get(problem.problem_id)
+            if log is None:
+                status = "未提出"
+                status_order = 1
+            elif log.is_correct:
+                status = "AC済み"
+                status_order = 2
+            else:
+                status = "未AC"
+                status_order = 0
+
+            by_label[label].append({
+                "problem": problem,
+                "status": status,
+                "status_order": status_order,
+                "url": f"https://atcoder.jp/contests/{problem.contest_id}/tasks/{problem.problem_id}",
+            })
+
+        label_problems = {}
+        for label in sorted(by_label.keys()):
+            label_problems[label] = sorted(by_label[label], key=lambda x: x["status_order"])
+
+        context["label_problems"] = label_problems
+        return context

@@ -31,6 +31,7 @@ class Command(BaseCommand):
                     problem_id=pid,
                     problem_name=p["name"],
                     contest_id=p["contest_id"],
+                    problem_index=p["problem_index"],
                     difficulty=difficulty,
                     display_difficulty=display,
                     is_experimental=model.get("is_experimental", False),
@@ -39,7 +40,7 @@ class Command(BaseCommand):
         Problem.objects.bulk_create(
             problem_objects,
             update_conflicts=True,
-            update_fields=["problem_name", "contest_id", "difficulty" , "display_difficulty", "is_experimental"],
+            update_fields=["problem_name", "contest_id", "problem_index", "difficulty" , "display_difficulty", "is_experimental"],
             unique_fields=["problem_id"],
         )
 

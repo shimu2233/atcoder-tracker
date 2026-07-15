@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>鉄則本 分野別一覧</h1>
+
+{% for category, items in category_problems.items %}
+    <h2>{{ category }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>問題</th>
+                <th>状態</th>
+                <th>リンク</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.problem.problem_name }}</td>
+                <td>{{ item.status }}</td>
+                <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
+{% endblock %}

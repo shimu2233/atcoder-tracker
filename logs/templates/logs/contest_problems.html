@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>コンテスト問題の状況（問題位置別）</h1>
+
+{% for index, items in index_problems.items %}
+    <h2>{{ index }}問題</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>問題名</th>
+                <th>コンテスト</th>
+                <th>難易度</th>
+                <th>状態</th>
+                <th>リンク</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.problem.problem_name }}</td>
+                <td>{{ item.problem.contest_id }}</td>
+                <td>{{ item.problem.display_difficulty }}</td>
+                <td>{{ item.status }}</td>
+                <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
+{% endblock %}

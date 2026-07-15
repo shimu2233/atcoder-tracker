@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>デイリートレーニング</h1>
+
+{% for label, items in label_problems.items %}
+    <h2>{{ label }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>問題名</th>
+                <th>難易度</th>
+                <th>状態</th>
+                <th>リンク</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.problem.problem_name }}</td>
+                <td>{{ item.problem.display_difficulty }}</td>
+                <td>{{ item.status }}</td>
+                <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
+{% endblock %}

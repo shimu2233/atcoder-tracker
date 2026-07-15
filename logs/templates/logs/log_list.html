@@ -1,3 +1,6 @@
+{% extends "base.html" %}
+
+{% block content %}
 <p>未タグ付けの記録が {{ untagged_count }} 件あります</p>
 
 <p>
@@ -49,3 +52,4 @@
     </tbody>
 </table>
 {% endfor %}
+{% endblock %}

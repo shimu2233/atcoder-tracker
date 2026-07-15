@@ -1,6 +1,7 @@
 from django.db import models
 class Problem(models.Model):
     problem_id=models.CharField(max_length=50,primary_key=True)
+    problem_index=models.CharField(max_length=10, blank=True, default="")
     problem_name=models.CharField(max_length=200)
     contest_id=models.CharField(max_length=50)
     category = models.CharField(max_length=50, blank=True)
