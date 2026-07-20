@@ -36,6 +36,8 @@ class Log(models.Model):
     tags=models.ManyToManyField(Tag,blank=True)
     created_at=models.DateTimeField(auto_now_add=True)
     updated_at=models.DateTimeField(auto_now=True)
+    memo = models.TextField(blank=True, default="")
+    do_later = models.BooleanField(default=False)
     def __str__(self):
         return self.problem.problem_name
     class Meta():

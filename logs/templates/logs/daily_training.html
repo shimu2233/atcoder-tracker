@@ -21,6 +21,11 @@
                 <td>{{ item.problem.display_difficulty }}</td>
                 <td>{{ item.status }}</td>
                 <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
+                <td>
+                    {% if item.log %}
+                        <a href="{% url 'log_edit' item.log.id %}">メモ</a>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

@@ -103,6 +103,8 @@
             <a href="{% url 'tessoku' %}">鉄則本</a> |
             <a href="{% url 'contest_problems' %}">コンテスト</a> |
             <a href="{% url 'daily_training' %}">デイリー</a> |
+            <a href="{% url 'unsolved' %}">未AC</a> |
+            <a href="{% url 'do_later' %}">後でやる</a> |
             <a href="{% url 'settings' %}">設定</a>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}

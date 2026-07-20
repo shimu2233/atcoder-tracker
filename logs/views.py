@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.views.generic import TemplateView,ListView
+from django.views.generic import TemplateView,ListView,UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import Log, Tag, Problem
 from django.shortcuts import redirect, get_object_or_404
@@ -8,6 +8,7 @@ from django.db.models import Q,Count
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from logs.services import sync_submissions
+from django.urls import reverse_lazy
 @login_required
 def sync_view(request):
     if request.method == "POST":
@@ -132,6 +133,7 @@ class TessokuView(LoginRequiredMixin, TemplateView):
 
             by_category[problem.category].append({
                 "problem": problem,
+                "log":log,
                 "status": status,
                 "status_order": status_order,
                 "url": f"https://atcoder.jp/contests/{problem.contest_id}/tasks/{problem.problem_id}",
@@ -187,6 +189,7 @@ class ContestProblemsView(LoginRequiredMixin, TemplateView):
 
             by_index[problem.problem_index].append({
                 "problem": problem,
+                "log":log,
                 "status": status,
                 "status_order": status_order,
                 "url": f"https://atcoder.jp/contests/{problem.contest_id}/tasks/{problem.problem_id}",
@@ -241,6 +244,7 @@ class DailyTrainingView(LoginRequiredMixin, TemplateView):
 
             by_label[label].append({
                 "problem": problem,
+                "log":log,
                 "status": status,
                 "status_order": status_order,
                 "url": f"https://atcoder.jp/contests/{problem.contest_id}/tasks/{problem.problem_id}",
@@ -252,3 +256,29 @@ class DailyTrainingView(LoginRequiredMixin, TemplateView):
 
         context["label_problems"] = label_problems
         return context
+class LogUpdateView(LoginRequiredMixin, UpdateView):
+    model = Log
+    fields = ["memo", "do_later"]
+    template_name = "logs/log_edit.html"
+    success_url = reverse_lazy("contest_problems")
+
+    def get_queryset(self):
+        return Log.objects.filter(user=self.request.user)
+class DoLaterListView(LoginRequiredMixin, ListView):
+    template_name = "logs/do_later.html"
+    context_object_name = "logs"
+
+    def get_queryset(self):
+        return (Log.objects
+                .filter(user=self.request.user, do_later=True)
+                .select_related("problem"))
+
+class UnsolvedListView(LoginRequiredMixin, ListView):
+    template_name = "logs/unsolved.html"
+    context_object_name = "logs"
+
+    def get_queryset(self):
+        return (Log.objects
+                .filter(user=self.request.user, is_correct=False)
+                .select_related("problem")
+                .order_by("problem__display_difficulty"))
