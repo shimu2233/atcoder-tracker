@@ -1,149 +1,203 @@
-# AtCoder 演習分析ツール
+# AtCoder Tracker
 
-AtCoder の演習履歴を自動で取り込み、難易度別に「得意 / 苦手」を可視化する学習分析 Web アプリケーションです。
-
-競技プログラミングの学習では「どの分野が弱いか」「どの難易度帯で詰まるか」を客観的に把握しづらいという課題があります。本アプリは AtCoder Problems の公開データと連携し、提出履歴を自動で分析することでこの課題を解決します。
+AtCoderの提出履歴とAtCoder Problemsの公開データを取り込み、常設教材と開催コンテストを分けて学習状況を確認するDjangoアプリケーションです。
 
 - デモ（ログイン不要）: https://atcoder-tracker-8ag0.onrender.com/demo/
 - トップページ: https://atcoder-tracker-8ag0.onrender.com/
 
-> 無料ホスティングのため、初回アクセス時はサーバー起動に 30〜60 秒ほどかかる場合があります。
-
----
+> 無料ホスティングのため、初回アクセス時はサーバー起動に時間がかかる場合があります。
 
 ## 主な機能
 
-- AtCoder 提出履歴の自動同期: AtCoder ユーザー名を登録し、ボタン一つで全提出履歴を取得・分析
-- 分野別の成績可視化: 常設コンテスト（競技プログラミングの鉄則）の問題を分野別に自動分類し、着手率・正答率をレーダーチャートで表示
-- 難易度帯別の成績可視化: 通常コンテスト（ABC 等）の問題を難易度帯ごとに集計し、正答率を棒グラフで表示
-- 状態別の問題リスト: 「未 AC」「未提出」「AC 済み」を分類し、各問題の AtCoder ページへ直接リンク。未着手の問題を上位に表示して次の学習対象を提示
-- ゲスト閲覧モード: ログインなしでデモアカウントの分析結果を閲覧可能(デモアカウントは私のアカウントです)
+- AtCoderユーザー名を使った提出履歴の同期
+- 分野別・難易度帯別の成績表示
+- 常設教材ごとの問題数、着手数、AC数、達成率表示
+- 常設教材内の問題検索、状態絞り込み、鉄則A・B・Cの切り替え
+- 開催コンテストをアルゴリズム、ヒューリスティック、グランドに分けて表示
+- AHC本編とAHC形式（AHC以外）の分離
+- コンテスト結果の新しい順・古い順切り替え
+- コンテストごとの問題表の折りたたみ
+- デイリートレーニング、未AC、後でやる問題の一覧
+- 問題単位の「後でやる」登録・解除
+- AtCoderの問題ページへの直接リンク
+- ログイン不要のデモ画面
 
----
+## 画面構成
+
+| 画面 | 内容 |
+| --- | --- |
+| ダッシュボード | 分野別と難易度別の集計をタブで表示。難易度別にはAC率グラフを表示 |
+| 常設 | 8種類の常設教材をカード形式で表示 |
+| 常設教材詳細 | 検索、状態絞り込み、教材内セクション切り替えができる問題表 |
+| コンテスト | アルゴリズム、ヒューリスティック、グランドを切り替えて表示 |
+| デイリー | AtCoder Daily Trainingの問題一覧 |
+| 未AC | 提出済みでACしていない問題の一覧 |
+| 後でやる | ユーザーが登録した問題の一覧 |
+
+問題一覧の表記は次に統一しています。
+
+`問題 / 問題名 / 分野 / 難易度 / 状態 / 後でやる / 開く`
 
 ## 技術スタック
 
 | レイヤー | 採用技術 |
-| バックエンド | Python / Django |
-| フロントエンド | Django Template + Chart.js |
-| データベース | PostgreSQL（本番: Neon） / SQLite（開発） |
-| 外部データ連携 | AtCoder Problems API（`requests`） |
-| インフラ | Render（Web） + Neon（DB） |
-| 静的ファイル配信 | WhiteNoise |
+| --- | --- |
+| バックエンド | Python / Django 6 |
+| フロントエンド | React 19 / TypeScript / Vite / Material UI |
+| HTMLの入口 | Django Template |
+| データベース | PostgreSQL（本番: Neon）/ SQLite（開発・テスト） |
+| 外部データ | AtCoder Problems API |
+| インフラ | Render + Neon |
+| 静的ファイル | WhiteNoise |
 
-### 技術選定の理由
+## アーキテクチャ
 
-数ある選択肢の中から、アプリの規模と要件に照らして以下の判断を行いました。
+DjangoのURL、認証、View、モデルは維持し、操作性が必要な画面だけをReactで描画する段階的な構成です。SPAにはしていません。
 
-- フロントエンドを SPA にせず Django Template を採用: 本アプリの画面は集計結果の表示が中心で、React 等による SPA 化はフロント / バックの分離や API 設計の工数に見合いません。サーバーサイドレンダリングで完結させ、グラフ描画のみ Chart.js を用いることで、要件を満たしつつ構成をシンプルに保っています。
+1. Django Viewがユーザー別の集計を行う
+2. Django Templateが`json_script`でデータを安全に埋め込む
+3. Reactが該当ページのルート要素へ画面を描画する
+4. 「後でやる」などの更新は既存のDjango URLへPOSTする
 
-- 非同期タスク基盤（Celery 等）を導入せず同期処理で実装: 提出履歴の取得は外部 API 通信を伴い時間がかかりますが、実行頻度は「ユーザーが同期ボタンを押したとき」程度です。この規模に対して Celery + Redis のようなタスクキューはオーバースペックと判断し、導入コストを避けました。
+Reactのソースは`frontend/`、Viteの出力先は`logs/static/logs/react/`です。生成物はGit管理せず、ローカルまたはデプロイ時にビルドします。
 
-- 本番 DB に Neon を採用: ホスティング先の Render の無料 PostgreSQL は作成から一定期間で削除される制約があるため、データベースには無期限で無料利用できる Neon を採用し、Web は Render・DB は Neon という構成にしました。
+## データモデルの役割
 
----
+| モデル | 役割 |
+| --- | --- |
+| `Problem` | 問題名、代表コンテストID、分野、難易度など問題そのものの情報 |
+| `Contest` | 開催枠の名称、日時、シリーズ、形式、常設判定 |
+| `ContestProblem` | コンテストと問題の多対多関係。常設教材の掲載問題判定にも使用 |
+| `Log` | ユーザーと問題単位の集約済み学習状態 |
+| `ContestAttempt` | ユーザーがどの開催枠で提出したかを保持 |
+| `DoLater` | ユーザーが後で解く問題として登録した状態 |
 
-## 設計上の工夫
+同じ問題が複数の教材や開催枠に属する可能性があるため、問題所属は`Problem.contest_id`だけで決めず、`ContestProblem`を使用します。一方、ユーザーが実際に提出した開催枠は`ContestAttempt.submitted_contest_id`で管理します。
 
-技術選定や実装にあたって行った主要な設計判断を記載します。
+## コンテスト分類
 
-### 1. 問題マスタ（Problem）と演習記録（Log）のテーブル分離
+### 常設教材
 
-問題名・難易度といった情報は全ユーザーで共通である一方、「誰がいつ解いたか」はユーザー個別の情報です。これらを 1 つのテーブルに持たせると、同じ問題を解いた人数分だけ問題情報が重複します。
+次の8個のIDを明示的に常設として扱います。
 
-そこで問題情報を `Problem` テーブルに正規化し、演習記録 `Log` からは外部キーで参照する構成にしました。これにより、約 9,000 問の問題マスタを 1 セットだけ保持し、ユーザーが増えてもデータの重複を防いでいます。
+| ID | 表示名 |
+| --- | --- |
+| `practice` | practice contest |
+| `APG4b` | C++入門 APG4b |
+| `APG4bPython` | Python入門 APG4bPython |
+| `abs` | AtCoder Beginners Selection |
+| `practice2` | AtCoder Library Practice Contest |
+| `typical90` | 競プロ典型90問 |
+| `math-and-algorithm` | アルゴリズムと数学 演習問題集 |
+| `tessoku-book` | 競技プログラミングの鉄則 |
 
-### 2. 常設コンテストと通常コンテストで分析軸を変える 2 系統設計
+鉄則は常設教材に含め、問題番号からA・B・Cを別セクションとして判定します。
 
-コンテストの性質に応じて、分析の切り口を分けています。
+### 開催コンテスト
 
-- 常設コンテスト（競技プログラミングの鉄則など）: 書籍の章立てにより分野が定まっているため、問題ごとに分野を自動分類し、分野別のレーダーチャートで表示
-- 通常コンテスト（ABC など）: 事前に分野が定まらないため、難易度帯別に集計して表示
+- `abcNNN`、`arcNNN`、`agcNNN`、`ahcNNN`は完全一致の正規表現で判定
+- AHCは`AHC`シリーズとして扱う
+- AtCoder公式データでヒューリスティックと判定され、AHC IDではないものは`AHC形式（AHC以外）`として扱う
+- AGCは画面上の「グランド」に表示
+- AHCとAHC形式は画面上の「ヒューリスティック」に表示
+- それ以外の通常開催枠は「アルゴリズム」に表示
+- ADTは専用のデイリー画面に表示
 
-問題の性質に合わない分析軸を無理に当てはめず、それぞれに適した切り口を用意することで、意味のある分析を実現しています。
-
-### 3. 難易度の「生値」と「表示値」の分離保持
-
-AtCoder Problems の難易度データは補正前の生値であり、低難易度帯では負の値を取ることがあります。表示にあたっては AtCoder 公式に準拠した補正式を適用する必要があります。
-
-そこで、API 由来の生値（`difficulty`）と、補正・色分けに用いる表示値（`display_difficulty`）を別カラムで保持しました。生データを原本として残すことで、将来的に補正ロジックが変わっても再計算が可能な設計としています。
-
-### 4. データ取得ロジックの共通化（services 層への切り出し）
-
-AtCoder Problems API から提出履歴を取得する処理は、当初コマンドライン用の management command として実装しましたが、Web の同期ボタンからも同じ処理を呼ぶ必要が生じました。
-
-そこで取得ロジックを `services.py` に関数として切り出し、management command と View の双方から呼び出す構成に変更。ロジックの重複を排除し、修正箇所を 1 か所に集約しています。
-
-### 5. ゲスト閲覧モードを認証機能から完全分離
-
-ポートフォリオとして採用担当者などにログインなしで中身を見せるため、ゲスト閲覧モードを設けました。
-
-実装にあたっては、既存の認証必須ページに「ゲストなら書き込みを許可しない」という条件分岐を追加するのではなく、認証を要求しない専用の View / URL（`/demo/`）として独立させました。認証ロジックに手を加えないことで、「ゲストなのに編集できてしまう」といった権限の漏れが構造的に発生しない設計としています。
-
-### 6. 外部 API 連携におけるページネーションとレート制限への対応
-
-AtCoder Problems の提出履歴 API は 1 回のリクエストで最大 500 件を返す仕様のため、取得件数が 500 件に達した場合に、最後の提出時刻を起点として続きを取得するページネーションを実装しました。
-
-また、API 提供元のガイドラインに従い、**リクエスト間に 1 秒以上の待機**を挿入。あわせて、想定外のレスポンスによる無限ループを防ぐための上限回数も設けています。
-
----
-
-## データ分類について
-
-競技プログラミングの鉄則（常設コンテスト）の問題は、AtCoder Problems の API にジャンル情報が含まれていません。そのため、書籍の章立てを基に問題 ID と分野の対応表を作成し、management command で一括分類する仕組みを実装しています。
-
-分類は以下の分野で行っています。
-
-アルゴリズムと計算量 / 累積和 / 二分探索 / 動的計画法 / 数学的問題 / 考察テクニック / ヒューリスティック / データ構造とクエリ処理 / グラフアルゴリズム / 総合問題
-
----
+分類ロジックは`logs/contest_classification.py`に集約しています。
 
 ## セットアップ
 
 ### 必要環境
 
-- Python 3.12 以上（開発環境: 3.14.4）
-- PostgreSQL（本番）または SQLite（開発）
+- Python 3.12以上
+- Node.js 20以上
+- PostgreSQLまたはSQLite
 
-### 手順
+### Windows
 
-```bash
-# リポジトリのクローン
+```powershell
 git clone https://github.com/shimu2233/atcoder-tracker.git
 cd atcoder-tracker
 
-# 仮想環境の作成と有効化
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
-
-# 依存パッケージのインストール
+py -m venv atcodervenv
+.\atcodervenv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# 環境変数の設定（.env ファイルを作成）
-# SECRET_KEY=<任意の文字列>
-# DEBUG=True
+cd frontend
+npm.cmd ci
+npm.cmd run build
+cd ..
 
-# マイグレーション
+py manage.py migrate
+py manage.py fetch_problems
+py manage.py runserver
+```
+
+ブラウザで`http://127.0.0.1:8000/`を開きます。
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/shimu2233/atcoder-tracker.git
+cd atcoder-tracker
+
+python -m venv atcodervenv
+source atcodervenv/bin/activate
+pip install -r requirements.txt
+
+cd frontend
+npm ci
+npm run build
+cd ..
+
 python manage.py migrate
-
-# 初期データの投入
-python manage.py fetch_problems          # AtCoder の全問題を取得
-python manage.py set_categories          # 鉄則本の問題を分野分類
-
-# 開発サーバーの起動
+python manage.py fetch_problems
 python manage.py runserver
 ```
 
-### 管理用コマンド
+### フロントエンド開発
+
+```powershell
+cd frontend
+npm.cmd run typecheck
+npm.cmd run build
+```
+
+Viteの生成物はDjangoの静的ファイルとして読み込まれます。Reactソースを変更した後は`npm.cmd run build`を再実行してください。
+
+## 管理用コマンド
 
 | コマンド | 説明 |
-| `fetch_problems` | AtCoder Problems API から全問題情報（難易度含む）を取得 |
-| `fetch_submissions <username>` | 指定ユーザーの提出履歴を取得・分析 |
-| `set_categories` | 常設コンテストの問題を分野別に分類 |
+| --- | --- |
+| `py manage.py fetch_problems` | 問題、コンテスト、コンテストと問題の関係を取得・更新 |
+| `py manage.py fetch_submissions <username>` | 指定ユーザーの提出履歴を取得・更新 |
+| `py manage.py set_categories` | 対象問題へ分野を設定 |
+| `py manage.py create_default_tags` | 初期タグを作成 |
 
----
+## デプロイ
 
-## 外部データの利用について
+`build.sh`は次の順番で実行します。
 
-本アプリは [AtCoder Problems](https://kenkoooo.com/atcoder/) が公開している API を利用しています。同 API のガイドラインに従い、リクエスト間隔の制御を行っています。
+1. Python依存関係をインストール
+2. `npm ci`でフロントエンド依存関係をインストール
+3. ViteでReactをビルド
+4. `collectstatic`を実行
+5. マイグレーションを適用
+
+## テスト
+
+```powershell
+$env:DATABASE_URL='sqlite:///:memory:'
+py manage.py test
+
+cd frontend
+npm.cmd run typecheck
+```
+
+## 外部データについて
+
+本アプリは[AtCoder Problems](https://kenkoooo.com/atcoder/)が公開するAPIとデータを利用します。取得処理ではページネーションとリクエスト間隔を考慮しています。
+
+## 変更内容レポート
+
+現在の構成へ変更した内容は[`docs/implementation-change-report.pdf`](docs/implementation-change-report.pdf)にまとめています。
