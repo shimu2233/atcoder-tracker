@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.views.generic import TemplateView,ListView,UpdateView
+from django.views.generic import TemplateView,ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import Contest, ContestAttempt, ContestProblem, Log, Tag, Problem,DoLater
 from .contest_classification import (
@@ -11,11 +11,10 @@ from .contest_classification import (
 )
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q,Count
+from django.db.models import Q,Count,Exists,OuterRef
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from logs.services import sync_submissions
-from django.urls import reverse_lazy
 
 
 def problem_status(log):
@@ -234,14 +233,6 @@ class LearningContentDetailView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class TessokuView(LoginRequiredMixin, TemplateView):
-    template_name = "logs/learning_content_detail.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context.update(learning_content_context(self.request.user, "tessoku-book"))
-        return context
-
 class ContestProblemsView(LoginRequiredMixin, TemplateView):
     template_name = "logs/contest_problems.html"
 
@@ -388,14 +379,6 @@ class DailyTrainingView(LoginRequiredMixin, TemplateView):
 
         context["label_problems"] = label_problems
         return context
-class LogUpdateView(LoginRequiredMixin, UpdateView):
-    model = Log
-    fields = ["memo", "do_later"]
-    template_name = "logs/log_edit.html"
-    success_url = reverse_lazy("contest_problems")
-
-    def get_queryset(self):
-        return Log.objects.filter(user=self.request.user)
 class DoLaterListView(LoginRequiredMixin, ListView):
     template_name = "logs/do_later.html"
     context_object_name = "do_laters"
@@ -413,6 +396,14 @@ class UnsolvedListView(LoginRequiredMixin, ListView):
         return (Log.objects
                 .filter(user=self.request.user, is_correct=False)
                 .select_related("problem")
+                .annotate(
+                    is_do_later=Exists(
+                        DoLater.objects.filter(
+                            user=self.request.user,
+                            problem_id=OuterRef("problem_id"),
+                        )
+                    )
+                )
                 .order_by("problem__display_difficulty"))
 
 @login_required

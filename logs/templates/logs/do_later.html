@@ -8,36 +8,28 @@
             <th>問題名</th>
             <th>コンテスト</th>
             <th>難易度</th>
-            <th>メモ</th>
             <th>リンク</th>
-            <th>状態</th>
-            <th></th>
             <th>後でやる</th>
         </tr>
     </thead>
     <tbody>
-        {% for log in do_laters %}
+        {% for item in do_laters %}
         <tr>
-            <td>{{ log.problem.problem_name }}</td>
-            <td>{{ log.problem.contest_id }}</td>
-            <td>{{ log.problem.display_difficulty }}</td>
-            <td>{{ log.memo|truncatechars:40 }}</td>
+            <td>{{ item.problem.problem_name }}</td>
+            <td>{{ item.problem.contest_id }}</td>
+            <td>{{ item.problem.display_difficulty|default_if_none:"-" }}</td>
             <td>
-                <a href="https://atcoder.jp/contests/{{ log.problem.contest_id }}/tasks/{{ log.problem.problem_id }}" target="_blank">問題ページ</a>
+                <a href="https://atcoder.jp/contests/{{ item.problem.contest_id }}/tasks/{{ item.problem.problem_id }}" target="_blank">問題ページ</a>
             </td>
-            <td>{% if log.is_correct %}AC済み{% else %}未AC{% endif %}</td>
-            <td><a href="{% url 'log_edit' log.id %}">編集</a></td>
             <td>
-                <form method="post" action="{% url 'toggle_do_later' log.id %}" style="display:inline;">
+                <form method="post" action="{% url 'toggle_do_later' item.problem.problem_id %}" style="display:inline;">
                     {% csrf_token %}
-                    <button type="submit">
-                        {% if log.do_later %}解除{% else %}後でやる{% endif %}
-                    </button>
+                    <button type="submit">解除</button>
                 </form>
             </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6">「後でやる」に登録した問題はありません</td></tr>
+        <tr><td colspan="5">「後でやる」に登録した問題はありません</td></tr>
         {% endfor %}
     </tbody>
 </table>

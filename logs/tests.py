@@ -111,7 +111,9 @@ class LearningContentViewTest(TestCase):
 
     def test_再録問題を鉄則AとBに分けて表示する(self):
         self.client.login(username="learner", password="testpass123")
-        response = self.client.get(reverse("tessoku"))
+        response = self.client.get(
+            reverse("learning_content_detail", args=["tessoku-book"])
+        )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "鉄則A")
         self.assertContains(response, "A77")
