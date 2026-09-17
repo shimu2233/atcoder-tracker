@@ -13,45 +13,7 @@
 {% endif %}
 <h1>ダッシュボード</h1>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{{ chart_labels|json_script:"chart-labels" }}
-{{ chart_attempt_rates|json_script:"chart-attempt-rates" }}
-{{ chart_ac_rates|json_script:"chart-ac-rates" }}
 <h2>分野別の成績（常設コンテスト）</h2>
-<canvas id="categoryChart" width="400" height="400"></canvas>
-<script>
-    const labels = JSON.parse(document.getElementById("chart-labels").textContent);
-    const attemptRates = JSON.parse(document.getElementById("chart-attempt-rates").textContent);
-    const acRates = JSON.parse(document.getElementById("chart-ac-rates").textContent);
-
-    new Chart(document.getElementById("categoryChart"), {
-        type: "radar",
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: "着手率(%)",
-                    data: attemptRates,
-                    borderColor: "rgba(54, 162, 235, 1)",
-                    backgroundColor: "rgba(54, 162, 235, 0.2)",
-                },
-                {
-                    label: "AC率(%)",
-                    data: acRates,
-                    borderColor: "rgba(255, 99, 132, 1)",
-                    backgroundColor: "rgba(255, 99, 132, 0.2)",
-                },
-            ],
-        },
-        options: {
-            scales: {
-                r: {
-                    min: 0,
-                    max: 100,
-                },
-            },
-        },
-    });
-</script>
 <table>
     <thead>
         <tr>

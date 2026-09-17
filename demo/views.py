@@ -51,9 +51,6 @@ class DemoDashboardView(TemplateView):
                 "ac_rate": round(ac / total * 100) if total else 0,
             })
         context["category_stats"] = category_stats
-        context["chart_labels"] = [s["category"] for s in category_stats]
-        context["chart_attempt_rates"] = [s["attempt_rate"] for s in category_stats]
-        context["chart_ac_rates"] = [s["ac_rate"] for s in category_stats]
         difficulty_stats = difficulty_stats_for_user(user)
 
         context["difficulty_stats"] = difficulty_stats
