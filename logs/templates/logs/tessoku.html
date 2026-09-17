@@ -11,6 +11,8 @@
                 <th>問題</th>
                 <th>状態</th>
                 <th>リンク</th>
+                <th>編集</th>
+                <th>後でやる</th>
             </tr>
         </thead>
         <tbody>
@@ -19,6 +21,19 @@
                 <td>{{ item.problem.problem_name }}</td>
                 <td>{{ item.status }}</td>
                 <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
+                <td>
+                    {% if item.log %}
+                        <a href="{% url 'log_edit' item.log.id %}">メモ</a>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="post" action="{% url 'toggle_do_later' item.problem.problem_id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit">
+                            {% if item.is_do_later %}解除{% else %}後でやる{% endif %}
+                        </button>
+                    </form>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

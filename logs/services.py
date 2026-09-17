@@ -1,7 +1,8 @@
 import requests
 import time
 from datetime import datetime, timezone
-from logs.models import Log, Problem
+from logs.models import ContestAttempt, Log, Problem
+import math
 
 def sync_submissions(user):
     """指定ユーザーのAtCoder提出履歴を取得してLogに保存する"""
@@ -67,4 +68,50 @@ def sync_submissions(user):
         else:
             updated_count += 1
 
+        submissions_by_contest = {}
+        for submission in subs:
+            submissions_by_contest.setdefault(submission["contest_id"], []).append(
+                submission
+            )
+        for contest_id, contest_submissions in submissions_by_contest.items():
+            contest_ac_submissions = [
+                submission
+                for submission in contest_submissions
+                if submission["result"] == "AC"
+            ]
+            contest_last_second = max(
+                submission["epoch_second"] for submission in contest_submissions
+            )
+            contest_first_ac_date = None
+            if contest_ac_submissions:
+                contest_first_ac_date = datetime.fromtimestamp(
+                    min(
+                        submission["epoch_second"]
+                        for submission in contest_ac_submissions
+                    ),
+                    tz=timezone.utc,
+                )
+            ContestAttempt.objects.update_or_create(
+                user=user,
+                problem=problem,
+                submitted_contest_id=contest_id,
+                defaults={
+                    "is_correct": bool(contest_ac_submissions),
+                    "first_ac_date": contest_first_ac_date,
+                    "last_submitted_date": datetime.fromtimestamp(
+                        contest_last_second,
+                        tz=timezone.utc,
+                    ),
+                },
+            )
+
     return {"created": created_count, "updated": updated_count}
+
+
+
+def correct_difficulty(difficulty):
+    if difficulty is None:
+        return None
+    if difficulty >= 400:
+        return round(difficulty)
+    return round(400 / math.exp(1 - difficulty / 400))

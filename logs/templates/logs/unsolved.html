@@ -11,6 +11,7 @@
             <th>メモ</th>
             <th>リンク</th>
             <th></th>
+            <th>後でやる</th>
         </tr>
     </thead>
     <tbody>
@@ -24,6 +25,14 @@
                 <a href="https://atcoder.jp/contests/{{ log.problem.contest_id }}/tasks/{{ log.problem.problem_id }}" target="_blank">問題ページ</a>
             </td>
             <td><a href="{% url 'log_edit' log.id %}">編集</a></td>
+            <td>
+                <form method="post" action="{% url 'toggle_do_later' log.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit">
+                        {% if log.do_later %}解除{% else %}後でやる{% endif %}
+                    </button>
+                </form>
+            </td>
         </tr>
         {% empty %}
         <tr><td colspan="6">未ACの問題はありません</td></tr>
