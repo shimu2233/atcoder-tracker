@@ -7,31 +7,47 @@
     <style>
         body {
             font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-            max-width: 1000px;
+            max-width: 1240px;
             margin: 0 auto;
             padding: 0 16px 40px;
             color: #333;
-            background: #fff;
+            background: #f6f8fc;
             line-height: 1.6;
         }
 
         nav {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 18px;
             flex-wrap: wrap;
-            padding: 12px 0;
-            border-bottom: 2px solid #e0e0e0;
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-bottom: 1px solid #dfe3eb;
+            border: 1px solid #e3e7ef;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 3px 14px rgba(31, 41, 55, 0.05);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            flex-wrap: wrap;
         }
 
         nav a {
-            color: #0066cc;
+            color: #506079;
             text-decoration: none;
             font-size: 14px;
+            padding: 6px 9px;
+            border-radius: 7px;
         }
 
-        nav a:hover {
-            text-decoration: underline;
+        nav a:hover, nav a.active {
+            color: #1769e0;
+            background: #eef5ff;
         }
 
         nav form {
@@ -39,10 +55,11 @@
         }
 
         nav button {
-            background: #f5f5f5;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 4px 12px;
+            color: #506079;
+            background: #fff;
+            border: 1px solid #d8deea;
+            border-radius: 7px;
+            padding: 6px 12px;
             cursor: pointer;
             font-size: 14px;
         }
@@ -92,32 +109,41 @@
         canvas {
             margin: 16px 0;
         }
+
+        main {
+            padding-top: 24px;
+        }
+
+        @media (max-width: 720px) {
+            nav { gap: 8px; }
+            nav form { margin-left: 0; }
+        }
     </style>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
     <nav>
         {% if user.is_authenticated %}
-            <a href="{% url 'dashboard' %}">ダッシュボード</a> |
-            <a href="{% url 'learning_contents' %}">常設教材</a> |
-            <a href="{% url 'contest_problems' %}">コンテスト</a> |
-            <a href="{% url 'daily_training' %}">デイリー</a> |
-            <a href="{% url 'unsolved' %}">未AC</a> |
-            <a href="{% url 'do_later' %}">後でやる</a> |
-            <a href="{% url 'settings' %}">設定</a>
+            <div class="nav-links">
+                <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">ダッシュボード</a>
+                <a class="{% if request.resolver_match.url_name == 'learning_contents' or request.resolver_match.url_name == 'learning_content_detail' %}active{% endif %}" href="{% url 'learning_contents' %}">常設</a>
+                <a class="{% if request.resolver_match.url_name == 'contest_problems' %}active{% endif %}" href="{% url 'contest_problems' %}">コンテスト</a>
+                <a class="{% if request.resolver_match.url_name == 'daily_training' %}active{% endif %}" href="{% url 'daily_training' %}">デイリー</a>
+                <a class="{% if request.resolver_match.url_name == 'unsolved' %}active{% endif %}" href="{% url 'unsolved' %}">未AC</a>
+                <a class="{% if request.resolver_match.url_name == 'do_later' %}active{% endif %}" href="{% url 'do_later' %}">後でやる</a>
+                <a class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'settings' %}">設定</a>
+            </div>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit">ログアウト</button>
             </form>
         {% else %}
-            <a href="{% url 'top' %}">ホーム</a> |
-            <a href="{% url 'login' %}">ログイン</a> |
-            <a href="{% url 'demo_dashboard' %}">デモ</a>
+            <div class="nav-links">
+                <a href="{% url 'top' %}">ホーム</a>
+                <a href="{% url 'login' %}">ログイン</a>
+                <a href="{% url 'demo_dashboard' %}">デモ</a>
+            </div>
         {% endif %}
     </nav>
-
-    <hr>
 
     <main>
         {% block content %}{% endblock %}

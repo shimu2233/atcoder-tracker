@@ -1,38 +1,8 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
-<h1>未ACの問題（{{ logs|length }}問）</h1>
-
-<table>
-    <thead>
-        <tr>
-            <th>問題名</th>
-            <th>コンテスト</th>
-            <th>難易度</th>
-            <th>リンク</th>
-            <th>後でやる</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for log in logs %}
-        <tr>
-            <td>{{ log.problem.problem_name }}</td>
-            <td>{{ log.problem.contest_id }}</td>
-            <td>{{ log.problem.display_difficulty|default_if_none:"-" }}</td>
-            <td>
-                <a href="https://atcoder.jp/contests/{{ log.problem.contest_id }}/tasks/{{ log.problem.problem_id }}" target="_blank">問題ページ</a>
-            </td>
-            <td>
-                <form method="post" action="{% url 'toggle_do_later' log.problem.problem_id %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit">
-                        {% if log.is_do_later %}解除{% else %}後でやる{% endif %}
-                    </button>
-                </form>
-            </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5">未ACの問題はありません</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+{{ problem_list_data|json_script:"problem-list-data" }}
+<form hidden>{% csrf_token %}</form>
+<div id="problem-list-root" data-csrf-token="{{ csrf_token }}"></div>
+<script type="module" src="{% get_static_prefix %}logs/react/app.js"></script>
 {% endblock %}

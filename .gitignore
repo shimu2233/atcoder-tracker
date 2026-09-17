@@ -7,3 +7,7 @@ db.sqlite3
 Thumbs.db
 staticfiles/
 media/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+logs/static/logs/react/

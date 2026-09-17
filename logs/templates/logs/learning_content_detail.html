@@ -1,44 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
-<h1>{{ content_title }}</h1>
-
-{% if not has_membership_data %}
-    <p>問題一覧データがありません。fetch_problemsを実行してください。</p>
-{% endif %}
-
-{% for section, items in sections.items %}
-    <h2>{{ section }}</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>問題</th>
-                <th>問題名</th>
-                <th>分野</th>
-                <th>難易度</th>
-                <th>状態</th>
-                <th>リンク</th>
-                <th>後でやる</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
-                <td>{{ item.problem_index }}</td>
-                <td>{{ item.problem.problem_name }}</td>
-                <td>{{ item.problem.category|default:"-" }}</td>
-                <td>{{ item.problem.display_difficulty|default_if_none:"-" }}</td>
-                <td>{{ item.status }}</td>
-                <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
-                <td>
-                    <form method="post" action="{% url 'toggle_do_later' item.problem.problem_id %}" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit">{% if item.is_do_later %}解除{% else %}後でやる{% endif %}</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% endfor %}
+{{ content_data|json_script:"problem-explorer-data" }}
+<form hidden>{% csrf_token %}</form>
+<div id="problem-explorer-root" data-csrf-token="{{ csrf_token }}"></div>
+<noscript>この画面を表示するにはJavaScriptを有効にしてください。</noscript>
+<script type="module" src="{% get_static_prefix %}logs/react/app.js"></script>
 {% endblock %}

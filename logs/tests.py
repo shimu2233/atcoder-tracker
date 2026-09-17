@@ -48,7 +48,9 @@ class DoLaterFlowTest(TestCase):
             DoLater.objects.filter(user=self.user, problem=self.problem).exists()
         )
         response = self.client.get(reverse("do_later"))
-        self.assertContains(response, "テスト問題")
+        item = response.context["problem_list_data"]["sections"][0]["items"][0]
+        self.assertEqual(item["name"], "テスト問題")
+        self.assertTrue(item["is_do_later"])
 
     def test_未ログインでは一覧を見られない(self):
         response = self.client.get(reverse("do_later"))
@@ -115,10 +117,11 @@ class LearningContentViewTest(TestCase):
             reverse("learning_content_detail", args=["tessoku-book"])
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "鉄則A")
-        self.assertContains(response, "A77")
-        self.assertContains(response, "鉄則B")
-        self.assertContains(response, "B16")
+        sections = response.context["content_data"]["sections"]
+        self.assertEqual([section["name"] for section in sections], ["鉄則A", "鉄則B"])
+        self.assertEqual(sections[0]["items"][0]["problem_index"], "A77")
+        self.assertEqual(sections[1]["items"][0]["problem_index"], "B16")
+        self.assertContains(response, 'id="problem-explorer-root"')
 
     def test_常設教材一覧に鉄則の掲載問題数を表示する(self):
         self.client.login(username="learner", password="testpass123")
@@ -130,6 +133,11 @@ class LearningContentViewTest(TestCase):
             if stat["content_id"] == "tessoku-book"
         )
         self.assertEqual(tessoku_stat["total"], 2)
+        self.assertEqual(
+            tessoku_stat["detail_url"],
+            reverse("learning_content_detail", args=["tessoku-book"]),
+        )
+        self.assertContains(response, 'id="learning-dashboard-root"')
 
 
 class ContestGroupingViewTest(TestCase):
@@ -181,8 +189,17 @@ class ContestGroupingViewTest(TestCase):
         self.client.login(username="contest-user", password="testpass123")
         response = self.client.get(reverse("contest_problems"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<h2>AHC</h2>", html=True)
-        self.assertContains(response, "AHC形式（AHC以外）")
+        categories = {
+            category["key"]: category
+            for category in response.context["contest_data"]["categories"]
+        }
+        self.assertEqual(
+            [group["series"] for group in categories["heuristic"]["groups"]],
+            ["AHC", "HEURISTIC_OTHER"],
+        )
+        self.assertEqual(categories["algorithm"]["groups"], [])
+        self.assertEqual(categories["grand"]["groups"], [])
+        self.assertContains(response, 'id="contest-explorer-root"')
 
 
 class SubmissionContestTrackingTest(TestCase):

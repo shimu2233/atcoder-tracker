@@ -1,30 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
-<h1>常設教材</h1>
-<p>同じ問題が複数の教材に掲載されている場合は、それぞれの達成率に反映されます。</p>
-<table>
-    <thead>
-        <tr>
-            <th>教材</th>
-            <th>全問題数</th>
-            <th>着手</th>
-            <th>AC</th>
-            <th>着手率</th>
-            <th>AC率</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for stat in content_stats %}
-        <tr>
-            <td><a href="{% url 'learning_content_detail' stat.content_id %}">{{ stat.title }}</a></td>
-            <td>{{ stat.total }}</td>
-            <td>{{ stat.attempted }}</td>
-            <td>{{ stat.ac }}</td>
-            <td>{{ stat.attempt_rate }}%</td>
-            <td>{{ stat.ac_rate }}%</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{{ content_stats|json_script:"learning-dashboard-data" }}
+<div id="learning-dashboard-root"></div>
+<noscript>この画面を表示するにはJavaScriptを有効にしてください。</noscript>
+<script type="module" src="{% get_static_prefix %}logs/react/app.js"></script>
 {% endblock %}

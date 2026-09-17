@@ -14,6 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q,Count,Exists,OuterRef
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.urls import reverse
 from logs.services import sync_submissions
 
 
@@ -23,6 +24,20 @@ def problem_status(log):
     if log.is_correct:
         return "AC済み", 2
     return "未AC", 1
+
+
+def problem_item_data(problem, problem_index, status, is_do_later, url):
+    return {
+        "problem_id": problem.problem_id,
+        "problem_index": problem_index or problem.problem_index or "",
+        "name": problem.problem_name,
+        "category": problem.category or "",
+        "difficulty": problem.display_difficulty,
+        "status": status,
+        "is_do_later": is_do_later,
+        "url": url,
+        "toggle_url": reverse("toggle_do_later", args=[problem.problem_id]),
+    }
 
 
 def difficulty_stats_for_user(user):
@@ -112,13 +127,40 @@ def learning_content_context(user, contest_id):
         items.sort(key=lambda item: (item["status_order"], item["problem_index"]))
 
     contest = Contest.objects.filter(contest_id=contest_id).first()
+    content_title = contest.title if contest else EVERGREEN_CONTENTS[contest_id]
+    serialized_sections = [
+        {
+            "name": section_name,
+            "items": [
+                {
+                    "problem_id": item["problem"].problem_id,
+                    "problem_index": item["problem_index"],
+                    "name": item["problem"].problem_name,
+                    "category": item["problem"].category or "",
+                    "difficulty": item["problem"].display_difficulty,
+                    "status": item["status"],
+                    "is_do_later": item["is_do_later"],
+                    "url": item["url"],
+                    "toggle_url": reverse(
+                        "toggle_do_later", args=[item["problem"].problem_id]
+                    ),
+                }
+                for item in items
+            ],
+        }
+        for section_name, items in sections.items()
+    ]
     return {
         "content_id": contest_id,
-        "content_title": (
-            contest.title if contest else EVERGREEN_CONTENTS[contest_id]
-        ),
+        "content_title": content_title,
         "sections": sections,
         "has_membership_data": bool(relations),
+        "content_data": {
+            "content_id": contest_id,
+            "title": content_title,
+            "has_membership_data": bool(relations),
+            "sections": serialized_sections,
+        },
     }
 @login_required
 def sync_view(request):
@@ -187,6 +229,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["difficulty_labels"] = [s["band"] for s in difficulty_stats]
         context["difficulty_ac_rates"] = [s["ac_rate"] for s in difficulty_stats]
         context["difficulty_totals"] = [s["total"] for s in difficulty_stats]
+        context["dashboard_data"] = {
+            "category_stats": category_stats,
+            "difficulty_stats": difficulty_stats,
+            "messages": [str(message) for message in messages.get_messages(self.request)],
+            "sync_url": reverse("sync"),
+        }
         return context
 class LearningContentsView(LoginRequiredMixin, TemplateView):
     template_name = "logs/learning_contents.html"
@@ -211,6 +259,7 @@ class LearningContentsView(LoginRequiredMixin, TemplateView):
                 "ac": ac,
                 "attempt_rate": round(attempted / total * 100) if total else 0,
                 "ac_rate": round(ac / total * 100) if total else 0,
+                "detail_url": reverse("learning_content_detail", args=[content_id]),
             })
         context["content_stats"] = stats
         return context
@@ -256,6 +305,9 @@ class ContestProblemsView(LoginRequiredMixin, TemplateView):
             for contest in Contest.objects.filter(contest_id__in=attempted_contest_ids)
         }
         grouped = {series: [] for series in SERIES_ORDER}
+        attempts_by_contest = {}
+        for attempt in attempts:
+            attempts_by_contest.setdefault(attempt.submitted_contest_id, []).append(attempt)
         for contest_id in attempted_contest_ids:
             contest = contests.get(contest_id)
             series = contest.series if contest else classify_contest(contest_id)[0]
@@ -298,20 +350,77 @@ class ContestProblemsView(LoginRequiredMixin, TemplateView):
                             f"{attempt.problem_id}"
                         ),
                     })
+            contest_attempts = attempts_by_contest.get(contest_id, [])
+            last_submitted_at = max(
+                (attempt.last_submitted_date for attempt in contest_attempts),
+                default=None,
+            )
             grouped.setdefault(series, []).append({
                 "contest_id": contest_id,
                 "title": contest.title if contest else contest_id,
+                "last_submitted_at": (
+                    last_submitted_at.isoformat() if last_submitted_at else ""
+                ),
                 "items": sorted(
                     items,
                     key=lambda item: (item["status_order"], item["problem_index"]),
                 ),
             })
 
-        context["contest_groups"] = [
+        contest_groups = [
             {"series": series, "label": SERIES_LABELS[series], "contests": grouped[series]}
             for series in SERIES_ORDER
             if grouped.get(series)
         ]
+        context["contest_groups"] = contest_groups
+
+        category_labels = {
+            "algorithm": "アルゴリズム",
+            "heuristic": "ヒューリスティック",
+            "grand": "グランド",
+        }
+        categories = {
+            key: {"key": key, "label": label, "groups": []}
+            for key, label in category_labels.items()
+        }
+        for group in contest_groups:
+            if group["series"] == "AGC":
+                category_key = "grand"
+            elif group["series"] in {"AHC", "HEURISTIC_OTHER"}:
+                category_key = "heuristic"
+            else:
+                category_key = "algorithm"
+
+            categories[category_key]["groups"].append({
+                "series": group["series"],
+                "label": group["label"],
+                "contests": [
+                    {
+                        "contest_id": contest["contest_id"],
+                        "title": contest["title"],
+                        "last_submitted_at": contest["last_submitted_at"],
+                        "items": [
+                            {
+                                "problem_id": item["problem"].problem_id,
+                                "problem_index": item["problem_index"],
+                                "name": item["problem"].problem_name,
+                                "category": item["problem"].category or "",
+                                "difficulty": item["problem"].display_difficulty,
+                                "status": item["status"],
+                                "is_do_later": item["is_do_later"],
+                                "url": item["url"],
+                                "toggle_url": reverse(
+                                    "toggle_do_later",
+                                    args=[item["problem"].problem_id],
+                                ),
+                            }
+                            for item in contest["items"]
+                        ],
+                    }
+                    for contest in group["contests"]
+                ],
+            })
+        context["contest_data"] = {"categories": list(categories.values())}
         return context
 class DailyTrainingView(LoginRequiredMixin, TemplateView):
     template_name = "logs/daily_training.html"
@@ -374,6 +483,26 @@ class DailyTrainingView(LoginRequiredMixin, TemplateView):
             label_problems[label] = sorted(by_label[label], key=lambda x: x["status_order"])
 
         context["label_problems"] = label_problems
+        context["problem_list_data"] = {
+            "sections": [
+                {
+                    "name": label,
+                    "items": [
+                        problem_item_data(
+                            item["problem"],
+                            item["problem_index"],
+                            item["status"],
+                            item["is_do_later"],
+                            item["url"],
+                        )
+                        for item in items
+                    ],
+                }
+                for label, items in label_problems.items()
+            ],
+            "empty_message": "デイリートレーニングの問題はありません。",
+            "remove_when_unbookmarked": False,
+        }
         return context
 class DoLaterListView(LoginRequiredMixin, ListView):
     template_name = "logs/do_later.html"
@@ -383,6 +512,38 @@ class DoLaterListView(LoginRequiredMixin, ListView):
         return (DoLater.objects
                 .filter(user=self.request.user)
                 .select_related("problem"))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        entries = list(context["do_laters"])
+        problem_ids = [entry.problem_id for entry in entries]
+        log_by_pid = {
+            log.problem_id: log
+            for log in Log.objects.filter(
+                user=self.request.user, problem_id__in=problem_ids
+            )
+        }
+        context["problem_list_data"] = {
+            "sections": [{
+                "name": "後でやる",
+                "items": [
+                    problem_item_data(
+                        entry.problem,
+                        entry.problem.problem_index,
+                        problem_status(log_by_pid.get(entry.problem_id))[0],
+                        True,
+                        (
+                            f"https://atcoder.jp/contests/{entry.problem.contest_id}/tasks/"
+                            f"{entry.problem_id}"
+                        ),
+                    )
+                    for entry in entries
+                ],
+            }],
+            "empty_message": "「後でやる」に登録した問題はありません。",
+            "remove_when_unbookmarked": True,
+        }
+        return context
 
 class UnsolvedListView(LoginRequiredMixin, ListView):
     template_name = "logs/unsolved.html"
@@ -401,6 +562,31 @@ class UnsolvedListView(LoginRequiredMixin, ListView):
                     )
                 )
                 .order_by("problem__display_difficulty"))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        logs = list(context["logs"])
+        context["problem_list_data"] = {
+            "sections": [{
+                "name": "未AC",
+                "items": [
+                    problem_item_data(
+                        log.problem,
+                        log.problem.problem_index,
+                        "未AC",
+                        log.is_do_later,
+                        (
+                            f"https://atcoder.jp/contests/{log.problem.contest_id}/tasks/"
+                            f"{log.problem_id}"
+                        ),
+                    )
+                    for log in logs
+                ],
+            }],
+            "empty_message": "未ACの問題はありません。",
+            "remove_when_unbookmarked": False,
+        }
+        return context
 
 @login_required
 def toggle_do_later(request, problem_id):

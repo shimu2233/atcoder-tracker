@@ -1,43 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
-<h1>コンテスト問題の状況</h1>
-
-{% for group in contest_groups %}
-    <h2>{{ group.label }}</h2>
-    {% for contest in group.contests %}
-        <h3>{{ contest.title }}（{{ contest.contest_id }}）</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>問題</th>
-                    <th>問題名</th>
-                    <th>難易度</th>
-                    <th>状態</th>
-                    <th>リンク</th>
-                    <th>後でやる</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in contest.items %}
-                <tr>
-                    <td>{{ item.problem_index }}</td>
-                    <td>{{ item.problem.problem_name }}</td>
-                    <td>{{ item.problem.display_difficulty|default_if_none:"-" }}</td>
-                    <td>{{ item.status }}</td>
-                    <td><a href="{{ item.url }}" target="_blank">問題ページ</a></td>
-                    <td>
-                        <form method="post" action="{% url 'toggle_do_later' item.problem.problem_id %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit">{% if item.is_do_later %}解除{% else %}後でやる{% endif %}</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endfor %}
-{% empty %}
-    <p>提出済みのコンテストはありません。</p>
-{% endfor %}
+{{ contest_data|json_script:"contest-explorer-data" }}
+<form hidden>{% csrf_token %}</form>
+<div id="contest-explorer-root" data-csrf-token="{{ csrf_token }}"></div>
+<noscript>この画面を表示するにはJavaScriptを有効にしてください。</noscript>
+<script type="module" src="{% get_static_prefix %}logs/react/app.js"></script>
 {% endblock %}
