@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}目標設定 | AtCoder演習分析{% endblock %}
+
+{% block content %}
+<style>
+    .goal-layout { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 24px; align-items: start; }
+    .goal-panel, .goal-card { background: #fff; border: 1px solid #e3e7ef; border-radius: 12px; box-shadow: 0 3px 14px rgba(31, 41, 55, .05); }
+    .goal-panel { padding: 20px; position: sticky; top: 16px; }
+    .goal-panel h1 { margin-top: 0; }
+    .goal-form p { margin: 0 0 14px; }
+    .goal-form label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 5px; }
+    .goal-form input[type="text"], .goal-form input[type="date"], .goal-form input[type="number"] { box-sizing: border-box; width: 100%; padding: 9px 10px; border: 1px solid #cbd3df; border-radius: 7px; font: inherit; }
+    .goal-form ul { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .goal-form ul label { display: flex; align-items: center; gap: 6px; font-weight: 400; }
+    .goal-form .errorlist { color: #b42318; display: block; font-size: 13px; margin: 4px 0; }
+    .goal-submit { width: 100%; border: 0; border-radius: 7px; padding: 10px 16px; color: #fff; background: #1976d2; font-weight: 600; cursor: pointer; }
+    .goal-list { display: grid; gap: 16px; }
+    .goal-card { padding: 20px; }
+    .goal-card-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .goal-card h2 { margin: 0; padding: 0; border: 0; }
+    .goal-status { border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #eef2f7; color: #506079; }
+    .goal-status-achieved { background: #e7f7ed; color: #16733c; }
+    .goal-status-active { background: #eef5ff; color: #1769e0; }
+    .goal-status-expired { background: #fff0ef; color: #b42318; }
+    .goal-meta { color: #667085; font-size: 14px; margin: 10px 0 14px; }
+    .goal-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .goal-tag { border-radius: 999px; padding: 3px 9px; background: #f0f3f8; font-size: 13px; }
+    .goal-progress-label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 6px; }
+    .goal-progress { height: 12px; overflow: hidden; border-radius: 999px; background: #e8edf4; }
+    .goal-progress > span { display: block; height: 100%; background: #1976d2; border-radius: inherit; }
+    .goal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; color: #667085; font-size: 13px; }
+    .goal-delete { color: #b42318; background: transparent; border: 0; padding: 4px; cursor: pointer; }
+    .goal-empty { background: #fff; border: 1px dashed #cbd3df; border-radius: 12px; padding: 36px; text-align: center; color: #667085; }
+    .goal-message { padding: 10px 14px; border-radius: 8px; background: #e7f7ed; color: #16733c; margin-bottom: 16px; }
+    @media (max-width: 800px) { .goal-layout { grid-template-columns: 1fr; } .goal-panel { position: static; } }
+</style>
+
+{% for message in messages %}<div class="goal-message">{{ message }}</div>{% endfor %}
+
+<div class="goal-layout">
+    <section class="goal-panel">
+        <h1>目標設定</h1>
+        <form method="post" class="goal-form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="goal-submit">目標を作成</button>
+        </form>
+    </section>
+
+    <section class="goal-list" aria-label="設定した目標">
+        {% for card in goal_cards %}
+        <article class="goal-card">
+            <div class="goal-card-header">
+                <h2>{{ card.goal.title }}</h2>
+                <span class="goal-status goal-status-{{ card.progress.status }}">{{ card.progress.status_label }}</span>
+            </div>
+            <div class="goal-meta">
+                {{ card.goal.start_date|date:"Y年n月j日" }}〜{{ card.goal.end_date|date:"Y年n月j日" }} ・ 難易度 {{ card.goal.difficulty_min }}〜{{ card.goal.difficulty_max }}
+            </div>
+            <div class="goal-tags">
+                {% for label in card.progress.contest_type_labels %}<span class="goal-tag">{{ label }}</span>{% endfor %}
+            </div>
+            <div class="goal-progress-label">
+                <span>{{ card.progress.completed_count }} / {{ card.goal.target_count }}問</span>
+                <span>{{ card.progress.progress_percent }}%</span>
+            </div>
+            <div class="goal-progress" role="progressbar" aria-valuenow="{{ card.progress.progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+                <span style="width: {{ card.progress.progress_percent }}%"></span>
+            </div>
+            <div class="goal-actions">
+                <span>{% if card.progress.is_achieved %}目標を達成しました{% else %}達成まであと {{ card.progress.remaining_count }}問{% endif %}</span>
+                <form method="post" action="{% url 'delete_goal' card.goal.id %}" onsubmit="return confirm('この目標を削除しますか？');">
+                    {% csrf_token %}
+                    <button type="submit" class="goal-delete">削除</button>
+                </form>
+            </div>
+        </article>
+        {% empty %}
+        <div class="goal-empty">まだ目標がありません。最初の目標を作成しましょう。</div>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

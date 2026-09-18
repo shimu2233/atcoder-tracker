@@ -166,6 +166,7 @@
                 <a class="{% if request.resolver_match.url_name == 'daily_training' %}active{% endif %}" href="{% url 'daily_training' %}">デイリー</a>
                 <a class="{% if request.resolver_match.url_name == 'unsolved' %}active{% endif %}" href="{% url 'unsolved' %}">未AC</a>
                 <a class="{% if request.resolver_match.url_name == 'do_later' %}active{% endif %}" href="{% url 'do_later' %}">後でやる</a>
+                <a class="{% if request.resolver_match.url_name == 'goals' or request.resolver_match.url_name == 'delete_goal' %}active{% endif %}" href="{% url 'goals' %}">目標設定</a>
                 <a class="{% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'settings' %}">設定</a>
             </div>
             <form method="post" action="{% url 'logout' %}" style="display:inline;">

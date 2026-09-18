@@ -1,7 +1,9 @@
 from django.shortcuts import render
 from django.views.generic import TemplateView,ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import Contest, ContestAttempt, ContestProblem, Log, Tag, Problem,DoLater
+from .models import Contest, ContestAttempt, ContestProblem, Log, Tag, Problem,DoLater,Goal
+from .forms import GoalForm
+from .goal_progress import calculate_goal_progress
 from .contest_classification import (
     EVERGREEN_CONTENTS,
     SERIES_LABELS,
@@ -556,3 +558,36 @@ def toggle_do_later(request, problem_id):
         if not created:
             obj.delete()
     return redirect(request.META.get("HTTP_REFERER", "dashboard"))
+
+
+@login_required
+def goals_view(request):
+    if request.method == "POST":
+        form = GoalForm(request.POST)
+        if form.is_valid():
+            goal = form.save(commit=False)
+            goal.user = request.user
+            goal.save()
+            messages.success(request, "目標を作成しました。")
+            return redirect("goals")
+    else:
+        form = GoalForm()
+
+    goal_cards = [
+        {"goal": goal, "progress": calculate_goal_progress(goal)}
+        for goal in Goal.objects.filter(user=request.user)
+    ]
+    return render(
+        request,
+        "logs/goals.html",
+        {"form": form, "goal_cards": goal_cards},
+    )
+
+
+@login_required
+def delete_goal(request, goal_id):
+    if request.method == "POST":
+        goal = get_object_or_404(Goal, id=goal_id, user=request.user)
+        goal.delete()
+        messages.success(request, "目標を削除しました。")
+    return redirect("goals")

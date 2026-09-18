@@ -107,6 +107,30 @@ class ContestAttempt(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.submitted_contest_id} - {self.problem_id}"
 
+
+class Goal(models.Model):
+    user = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.CASCADE,
+        related_name="goals",
+    )
+    title = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    target_count = models.PositiveIntegerField()
+    contest_types = models.JSONField(default=list)
+    difficulty_min = models.PositiveIntegerField()
+    difficulty_max = models.PositiveIntegerField()
+    achieved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-start_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+
 class DoLater(models.Model):
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
     problem = models.ForeignKey(Problem, on_delete=models.CASCADE)

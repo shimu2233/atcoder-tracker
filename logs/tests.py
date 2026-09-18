@@ -1,12 +1,15 @@
 from django.test import TestCase
 from unittest.mock import Mock, patch
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from logs.services import correct_difficulty, sync_submissions
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from logs.models import Problem, DoLater
+from logs.models import Problem, DoLater, Goal, Log
 from logs.models import Contest, ContestAttempt, ContestProblem
 from logs.contest_classification import classify_contest, tessoku_section
+from logs.goal_progress import calculate_goal_progress
 from logs.views import difficulty_stats_for_user
 
 class CorrectDifficultyTest(TestCase):
@@ -45,6 +48,116 @@ class NavigationVisibilityTest(TestCase):
         response = self.client.get("/demo/")
 
         self.assertEqual(response.status_code, 404)
+
+
+class GoalFlowTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="goal-user", password="testpass123"
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="other-goal-user", password="testpass123"
+        )
+        self.contest = Contest.objects.create(
+            contest_id="abc500",
+            title="AtCoder Beginner Contest 500",
+            series="ABC",
+            contest_format="ALGORITHM",
+        )
+        self.problem = Problem.objects.create(
+            problem_id="abc500_c",
+            contest_id="abc500",
+            problem_name="Goal problem",
+            display_difficulty=800,
+        )
+        self.first_ac_at = datetime(2026, 9, 10, 12, tzinfo=ZoneInfo("Asia/Tokyo"))
+        Log.objects.create(
+            user=self.user,
+            problem=self.problem,
+            submitted_contest_id=self.contest.contest_id,
+            is_correct=True,
+            first_ac_date=self.first_ac_at,
+            last_submitted_date=self.first_ac_at,
+        )
+        ContestAttempt.objects.create(
+            user=self.user,
+            problem=self.problem,
+            submitted_contest_id=self.contest.contest_id,
+            is_correct=True,
+            first_ac_date=self.first_ac_at,
+            last_submitted_date=self.first_ac_at,
+        )
+
+    def create_goal(self, **overrides):
+        values = {
+            "user": self.user,
+            "title": "水色を目指す",
+            "start_date": date(2026, 9, 1),
+            "end_date": date(2026, 9, 30),
+            "target_count": 1,
+            "contest_types": ["ALGORITHM"],
+            "difficulty_min": 400,
+            "difficulty_max": 1199,
+        }
+        values.update(overrides)
+        return Goal.objects.create(**values)
+
+    def test_条件内の初ACで目標を達成する(self):
+        goal = self.create_goal()
+
+        progress = calculate_goal_progress(goal)
+
+        self.assertEqual(progress["completed_count"], 1)
+        self.assertTrue(progress["is_achieved"])
+        goal.refresh_from_db()
+        self.assertEqual(goal.achieved_at, self.first_ac_at)
+
+    def test_種別または難易度が対象外なら数えない(self):
+        evergreen_goal = self.create_goal(contest_types=["EVERGREEN"])
+        hard_goal = self.create_goal(difficulty_min=1200, difficulty_max=1999)
+
+        self.assertEqual(
+            calculate_goal_progress(evergreen_goal)["completed_count"], 0
+        )
+        self.assertEqual(calculate_goal_progress(hard_goal)["completed_count"], 0)
+
+    def test_目標を画面から作成できる(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("goals"),
+            {
+                "title": "ABCを解く",
+                "start_date": "2026-09-01",
+                "end_date": "2026-09-30",
+                "target_count": 5,
+                "contest_types": ["ALGORITHM", "GRAND"],
+                "difficulty_min": 400,
+                "difficulty_max": 799,
+            },
+        )
+
+        self.assertRedirects(response, reverse("goals"))
+        goal = Goal.objects.get(title="ABCを解く")
+        self.assertEqual(goal.user, self.user)
+        self.assertEqual(goal.contest_types, ["ALGORITHM", "GRAND"])
+
+    def test_他ユーザーの目標は削除できない(self):
+        goal = self.create_goal(user=self.other_user)
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("delete_goal", args=[goal.id]))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Goal.objects.filter(id=goal.id).exists())
+
+    def test_上部ナビから目標設定へ移動できる(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, reverse("goals"))
+        self.assertContains(response, "目標設定")
 
 
 class DoLaterFlowTest(TestCase):
