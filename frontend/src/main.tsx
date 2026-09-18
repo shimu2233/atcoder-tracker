@@ -77,9 +77,6 @@ const dashboardRootElement = document.getElementById("dashboard-root");
 if (dashboardRootElement) {
   render(
     dashboardRootElement,
-    <Dashboard
-      data={readJson<DashboardData>("dashboard-data")}
-      csrfToken={dashboardRootElement.dataset.csrfToken ?? ""}
-    />
+    <Dashboard data={readJson<DashboardData>("dashboard-data")} />
   );
 }

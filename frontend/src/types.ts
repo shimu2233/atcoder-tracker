@@ -74,15 +74,6 @@ export type ProblemListData = {
   remove_when_unbookmarked: boolean;
 };
 
-export type CategoryStat = {
-  category: string;
-  total: number;
-  attempted: number;
-  ac: number;
-  attempt_rate: number;
-  ac_rate: number;
-};
-
 export type DifficultyStat = {
   band: string;
   total: number;
@@ -91,8 +82,6 @@ export type DifficultyStat = {
 };
 
 export type DashboardData = {
-  category_stats: CategoryStat[];
   difficulty_stats: DifficultyStat[];
   messages: string[];
-  sync_url: string;
 };

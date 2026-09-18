@@ -1,8 +1,6 @@
 from django.shortcuts import render,get_object_or_404
 from django.views.generic import TemplateView
-from django.db.models import Count, Q
 from accounts.models import CustomUser
-from logs.models import Log, Problem
 from logs.views import difficulty_stats_for_user
 
 DEMO_USERNAME = "demo" 
@@ -13,44 +11,6 @@ class DemoDashboardView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = get_object_or_404(CustomUser, username=DEMO_USERNAME)
-        total_by_category = {}
-        for row in (
-            Problem.objects
-            .exclude(category="")
-            .values("category")
-            .annotate(total=Count("problem_id"))
-        ):
-            total_by_category[row["category"]] = row["total"]
-        my_stats = {}
-        for row in (
-            Log.objects
-            .filter(user=user)
-            .exclude(problem__category="")
-            .values("problem__category")
-            .annotate(
-                attempted=Count("id"),
-                ac=Count("id", filter=Q(is_correct=True)),
-            )
-        ):
-            my_stats[row["problem__category"]] = {
-                "attempted": row["attempted"],
-                "ac": row["ac"],
-            }
-        category_stats = []
-        for category in sorted(total_by_category.keys()):
-            total = total_by_category[category]
-            stat = my_stats.get(category, {"attempted": 0, "ac": 0})
-            attempted = stat["attempted"]
-            ac = stat["ac"]
-            category_stats.append({
-                "category": category,
-                "total": total,
-                "attempted": attempted,
-                "ac": ac,
-                "attempt_rate": round(attempted / total * 100) if total else 0,
-                "ac_rate": round(ac / total * 100) if total else 0,
-            })
-        context["category_stats"] = category_stats
         difficulty_stats = difficulty_stats_for_user(user)
 
         context["difficulty_stats"] = difficulty_stats

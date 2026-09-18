@@ -1,4 +1,6 @@
 atcodervenv/
+.uv-cache/
+.uv-python/
 *.pyc
 __pycache__/
 db.sqlite3

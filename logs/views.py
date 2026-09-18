@@ -183,46 +183,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
 
-        total_by_category = {}
-        for row in (
-            Problem.objects
-            .exclude(category="")
-            .values("category")
-            .annotate(total=Count("problem_id"))
-        ):
-            total_by_category[row["category"]] = row["total"]
-
-        my_stats = {}
-        for row in (
-            Log.objects
-            .filter(user=user)
-            .exclude(problem__category="")
-            .values("problem__category")
-            .annotate(
-                attempted=Count("id"),
-                ac=Count("id", filter=Q(is_correct=True)),
-            )
-        ):
-            my_stats[row["problem__category"]] = {
-                "attempted": row["attempted"],
-                "ac": row["ac"],
-            }
-        category_stats = []
-        for category in sorted(total_by_category.keys()):
-            total = total_by_category[category]
-            stat = my_stats.get(category, {"attempted": 0, "ac": 0})
-            attempted = stat["attempted"]
-            ac = stat["ac"]
-
-            category_stats.append({
-                "category": category,
-                "total": total,
-                "attempted": attempted,
-                "ac": ac,
-                "attempt_rate": round(attempted / total * 100) if total else 0,
-                "ac_rate": round(ac / total * 100) if total else 0,
-            })
-        context["category_stats"] = category_stats
         difficulty_stats = difficulty_stats_for_user(user)
 
         context["difficulty_stats"] = difficulty_stats
@@ -230,10 +190,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["difficulty_ac_rates"] = [s["ac_rate"] for s in difficulty_stats]
         context["difficulty_totals"] = [s["total"] for s in difficulty_stats]
         context["dashboard_data"] = {
-            "category_stats": category_stats,
             "difficulty_stats": difficulty_stats,
             "messages": [str(message) for message in messages.get_messages(self.request)],
-            "sync_url": reverse("sync"),
         }
         return context
 class LearningContentsView(LoginRequiredMixin, TemplateView):

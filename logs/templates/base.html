@@ -68,6 +68,34 @@
             background: #e8e8e8;
         }
 
+        nav .nav-sync-form {
+            margin-left: 0;
+        }
+
+        nav .nav-sync-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #fff;
+            background: #1976d2;
+            border: 0;
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-weight: 500;
+            line-height: 1.75;
+            box-shadow: 0 3px 1px -2px rgba(0, 0, 0, .2), 0 2px 2px rgba(0, 0, 0, .14), 0 1px 5px rgba(0, 0, 0, .12);
+        }
+
+        nav .nav-sync-button:hover {
+            background: #1565c0;
+        }
+
+        .nav-sync-button svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
         h1 {
             font-size: 24px;
             margin: 24px 0 16px;
@@ -126,6 +154,13 @@
             <div class="nav-links">
                 <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">ダッシュボード</a>
                 <a class="{% if request.resolver_match.url_name == 'learning_contents' or request.resolver_match.url_name == 'learning_content_detail' %}active{% endif %}" href="{% url 'learning_contents' %}">常設</a>
+                <form class="nav-sync-form" method="post" action="{% url 'sync' %}">
+                    {% csrf_token %}
+                    <button class="nav-sync-button" type="submit">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.09 0-7.19 3.72-6.39 7.69L3.2 9.28C2.46 14.91 6.85 20 12 20c3.04 0 5.74-1.54 7.33-3.89l-1.68-1.1A6.98 6.98 0 0 1 12 18a6 6 0 1 1 4.24-10.24L13 11h8V3z"/></svg>
+                        AtCoderデータを同期
+                    </button>
+                </form>
                 <a class="{% if request.resolver_match.url_name == 'contest_problems' %}active{% endif %}" href="{% url 'contest_problems' %}">コンテスト</a>
                 <a class="{% if request.resolver_match.url_name == 'daily_training' %}active{% endif %}" href="{% url 'daily_training' %}">デイリー</a>
                 <a class="{% if request.resolver_match.url_name == 'unsolved' %}active{% endif %}" href="{% url 'unsolved' %}">未AC</a>

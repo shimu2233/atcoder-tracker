@@ -3,7 +3,6 @@
 
 {% block content %}
 {{ dashboard_data|json_script:"dashboard-data" }}
-<form hidden>{% csrf_token %}</form>
-<div id="dashboard-root" data-csrf-token="{{ csrf_token }}"></div>
+<div id="dashboard-root"></div>
 <script type="module" src="{% get_static_prefix %}logs/react/app.js"></script>
 {% endblock %}
