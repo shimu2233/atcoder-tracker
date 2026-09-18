@@ -21,6 +21,32 @@ class CorrectDifficultyTest(TestCase):
 
     def test_難易度未推定のNoneはNoneのまま返る(self):
         self.assertIsNone(correct_difficulty(None))
+
+
+class NavigationVisibilityTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="navigation-user", password="testpass123"
+        )
+
+    def test_トップページではログイン状態でも上部ナビを表示しない(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("top"))
+
+        self.assertNotContains(response, "<nav>", html=False)
+
+    def test_ダッシュボードでは上部ナビを表示する(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, "<nav>", html=False)
+
+    def test_デモURLは存在しない(self):
+        response = self.client.get("/demo/")
+
+        self.assertEqual(response.status_code, 404)
+
+
 class DoLaterFlowTest(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

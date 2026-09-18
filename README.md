@@ -2,7 +2,6 @@
 
 AtCoderの提出履歴とAtCoder Problemsの公開データを取り込み、常設教材と開催コンテストを分けて学習状況を確認するDjangoアプリケーションです。
 
-- デモ（ログイン不要）: https://atcoder-tracker-8ag0.onrender.com/demo/
 - トップページ: https://atcoder-tracker-8ag0.onrender.com/
 
 > 無料ホスティングのため、初回アクセス時はサーバー起動に時間がかかる場合があります。
@@ -20,7 +19,6 @@ AtCoderの提出履歴とAtCoder Problemsの公開データを取り込み、常
 - デイリートレーニング、未AC、後でやる問題の一覧
 - 問題単位の「後でやる」登録・解除
 - AtCoderの問題ページへの直接リンク
-- ログイン不要のデモ画面
 
 ## 画面構成
 

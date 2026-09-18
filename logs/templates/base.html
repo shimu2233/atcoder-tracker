@@ -149,6 +149,7 @@
     </style>
 </head>
 <body>
+    {% if request.resolver_match.url_name != 'top' %}
     <nav>
         {% if user.is_authenticated %}
             <div class="nav-links">
@@ -175,10 +176,10 @@
             <div class="nav-links">
                 <a href="{% url 'top' %}">ホーム</a>
                 <a href="{% url 'login' %}">ログイン</a>
-                <a href="{% url 'demo_dashboard' %}">デモ</a>
             </div>
         {% endif %}
     </nav>
+    {% endif %}
 
     <main>
         {% block content %}{% endblock %}
