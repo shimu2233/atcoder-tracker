@@ -32,8 +32,15 @@ class NavigationVisibilityTest(TestCase):
             username="navigation-user", password="testpass123"
         )
 
-    def test_トップページではログイン状態でも上部ナビを表示しない(self):
+    def test_トップページでもログイン状態なら上部ナビを表示する(self):
         self.client.force_login(self.user)
+        response = self.client.get(reverse("top"))
+
+        self.assertContains(response, "<nav>", html=False)
+        self.assertContains(response, "ダッシュボード")
+        self.assertContains(response, "常設")
+
+    def test_ログイン前は上部ナビを表示しない(self):
         response = self.client.get(reverse("top"))
 
         self.assertNotContains(response, "<nav>", html=False)
@@ -158,6 +165,25 @@ class GoalFlowTest(TestCase):
 
         self.assertContains(response, reverse("goals"))
         self.assertContains(response, "目標設定")
+
+    def test_ログイン中は上部に目標の進捗を表示する(self):
+        self.create_goal(title="上部に表示する目標", target_count=2)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, 'aria-label="目標の進捗"')
+        self.assertContains(response, "上部に表示する目標")
+        self.assertContains(response, "1 / 2問")
+
+    def test_トップページでは目標進捗を表示しない(self):
+        self.create_goal(title="トップでは隠す目標", target_count=2)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("top"))
+
+        self.assertNotContains(response, "トップでは隠す目標")
+        self.assertContains(response, "<nav>", html=False)
 
 
 class DoLaterFlowTest(TestCase):

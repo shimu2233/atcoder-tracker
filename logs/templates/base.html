@@ -96,6 +96,83 @@
             fill: currentColor;
         }
 
+        .header-goals {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border: 1px solid #dbe3ef;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 3px 14px rgba(31, 41, 55, 0.05);
+        }
+
+        .header-goals-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #506079;
+        }
+
+        .header-goals-title a {
+            font-weight: 400;
+            text-decoration: none;
+        }
+
+        .header-goal-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 10px 18px;
+        }
+
+        .header-goal-head,
+        .header-goal-numbers {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .header-goal-head {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .header-goal-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .header-goal-status {
+            color: #667085;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .header-goal-progress {
+            height: 7px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #e8edf4;
+        }
+
+        .header-goal-progress span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: #1976d2;
+        }
+
+        .header-goal-numbers {
+            margin-top: 4px;
+            color: #667085;
+            font-size: 12px;
+        }
+
         h1 {
             font-size: 24px;
             margin: 24px 0 16px;
@@ -149,9 +226,33 @@
     </style>
 </head>
 <body>
-    {% if request.resolver_match.url_name != 'top' %}
+    {% if user.is_authenticated and header_goal_cards and request.resolver_match.url_name != 'top' %}
+    <section class="header-goals" aria-label="目標の進捗">
+        <div class="header-goals-title">
+            <span>目標の進捗</span>
+            <a href="{% url 'goals' %}">すべて見る</a>
+        </div>
+        <div class="header-goal-list">
+            {% for card in header_goal_cards %}
+            <div class="header-goal">
+                <div class="header-goal-head">
+                    <span class="header-goal-name">{{ card.goal.title }}</span>
+                    <span class="header-goal-status">{{ card.progress.status_label }}</span>
+                </div>
+                <div class="header-goal-progress" role="progressbar" aria-valuenow="{{ card.progress.progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+                    <span style="width: {{ card.progress.progress_percent }}%"></span>
+                </div>
+                <div class="header-goal-numbers">
+                    <span>{{ card.progress.completed_count }} / {{ card.goal.target_count }}問</span>
+                    <span>{{ card.progress.progress_percent }}%</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    {% if user.is_authenticated %}
     <nav>
-        {% if user.is_authenticated %}
             <div class="nav-links">
                 <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">ダッシュボード</a>
                 <a class="{% if request.resolver_match.url_name == 'learning_contents' or request.resolver_match.url_name == 'learning_content_detail' %}active{% endif %}" href="{% url 'learning_contents' %}">常設</a>
@@ -173,12 +274,6 @@
                 {% csrf_token %}
                 <button type="submit">ログアウト</button>
             </form>
-        {% else %}
-            <div class="nav-links">
-                <a href="{% url 'top' %}">ホーム</a>
-                <a href="{% url 'login' %}">ログイン</a>
-            </div>
-        {% endif %}
     </nav>
     {% endif %}
 
