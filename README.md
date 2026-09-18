@@ -11,6 +11,7 @@ AtCoderの提出履歴とAtCoder Problemsの公開データを取り込み、常
 - AtCoderユーザー名を使った提出履歴の同期
 - 難易度帯別の成績表示
 - 期間、コンテスト種別、難易度を指定した初AC数の目標設定
+- ログイン後の各画面上部に、期限の近い目標の進捗を最大3件表示（ホームを除く）
 - 常設教材ごとの問題数、着手数、AC数、達成率表示
 - 常設教材内の問題検索、状態絞り込み、鉄則A・B・Cの切り替え
 - 開催コンテストをアルゴリズム、ヒューリスティック、グランドに分けて表示
@@ -26,7 +27,7 @@ AtCoderの提出履歴とAtCoder Problemsの公開データを取り込み、常
 | 画面 | 内容 |
 | --- | --- |
 | ダッシュボード | 難易度別の集計とAC率グラフを表示 |
-| 目標設定 | 期間・コンテスト種別・難易度・問題数を指定し、初AC数の進捗を表示 |
+| 目標設定 | 期間・コンテスト種別・難易度・問題数を指定し、初AC数の進捗を表示・削除 |
 | 常設 | 8種類の常設教材をカード形式で表示 |
 | 常設教材詳細 | 検索、状態絞り込み、教材内セクション切り替えができる問題表 |
 | コンテスト | アルゴリズム、ヒューリスティック、グランドを切り替えて表示 |
@@ -70,6 +71,7 @@ Reactのソースは`frontend/`、Viteの出力先は`logs/static/logs/react/`�
 | `ContestProblem` | コンテストと問題の多対多関係。常設教材の掲載問題判定にも使用 |
 | `Log` | ユーザーと問題単位の集約済み学習状態 |
 | `ContestAttempt` | ユーザーがどの開催枠で提出したかを保持 |
+| `Goal` | 期間、コンテスト種別、難易度範囲、目標問題数、達成日時を保持 |
 | `DoLater` | ユーザーが後で解く問題として登録した状態 |
 
 同じ問題が複数の教材や開催枠に属する可能性があるため、問題所属は`Problem.contest_id`だけで決めず、`ContestProblem`を使用します。一方、ユーザーが実際に提出した開催枠は`ContestAttempt.submitted_contest_id`で管理します。
@@ -130,10 +132,13 @@ cd ..
 
 py manage.py migrate
 py manage.py fetch_problems
+$env:DEBUG='True'
 py manage.py runserver
 ```
 
 ブラウザで`http://127.0.0.1:8000/`を開きます。
+
+`$env:DEBUG='True'`は、そのPowerShellで起動するローカル開発サーバーだけに適用します。本番環境では必ず`DEBUG=False`にしてください。
 
 ### macOS / Linux
 
@@ -152,8 +157,11 @@ cd ..
 
 python manage.py migrate
 python manage.py fetch_problems
+DEBUG=True \
 python manage.py runserver
 ```
+
+上記の`DEBUG=True`はローカル起動コマンドだけに適用されます。
 
 ### フロントエンド開発
 
@@ -164,6 +172,13 @@ npm.cmd run build
 ```
 
 Viteの生成物はDjangoの静的ファイルとして読み込まれます。Reactソースを変更した後は`npm.cmd run build`を再実行してください。
+
+`DEBUG=False`でローカル確認する場合は、起動前に静的ファイルを収集します。
+
+```powershell
+.\atcodervenv\Scripts\python.exe manage.py collectstatic --noinput
+.\atcodervenv\Scripts\python.exe manage.py runserver
+```
 
 ## 管理用コマンド
 
@@ -183,6 +198,8 @@ Viteの生成物はDjangoの静的ファイルとして読み込まれます。R
 3. ViteでReactをビルド
 4. `collectstatic`を実行
 5. マイグレーションを適用
+
+本番では環境変数`DEBUG=False`（または未設定）で動作します。`settings.py`の既定値も`False`です。
 
 ## テスト
 
