@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.views.generic import TemplateView,ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import Contest, ContestAttempt, ContestProblem, Log, Tag, Problem,DoLater,Goal
+from .models import Contest, ContestAttempt, ContestProblem, Log, Problem,DoLater,Goal
 from .forms import GoalForm
 from .goal_progress import calculate_goal_progress
 from .contest_classification import (
