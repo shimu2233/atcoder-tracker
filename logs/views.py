@@ -169,7 +169,10 @@ def sync_view(request):
     if request.method == "POST":
         result = sync_submissions(request.user)
         if "error" in result:
-            messages.error(request, result["error"])
+            if result.get("code") in {"already_running", "cooldown"}:
+                messages.info(request, result["error"])
+            else:
+                messages.error(request, result["error"])
         else:
             messages.success(
                 request,

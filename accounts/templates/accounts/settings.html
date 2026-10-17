@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>設定</h1>
+<p>AtCoderユーザー名を変更すると、取得済みの提出履歴が削除されます。変更後に再同期してください。後でやる問題と目標設定は残ります。同期開始から5分間の再実行制限は維持されます。</p>
 <form method="post">
     {% csrf_token %}
     {{ form.as_p }}

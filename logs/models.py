@@ -128,3 +128,12 @@ class DoLater(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.problem.problem_name}"
+
+
+class SubmissionSyncState(models.Model):
+    user = models.OneToOneField(
+        'accounts.CustomUser', on_delete=models.CASCADE,
+        related_name='submission_sync_state',
+    )
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    is_running = models.BooleanField(default=False)

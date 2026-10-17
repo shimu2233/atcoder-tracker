@@ -17,3 +17,15 @@ class SettingsView(LoginRequiredMixin, UpdateView):
 
     def get_object(self):
         return self.request.user
+    def form_valid(self, form):
+        from django.http import HttpResponseRedirect
+        from logs.services import change_atcoder_username
+
+        result = change_atcoder_username(
+            self.request.user, form.cleaned_data['atcoder_username'],
+        )
+        if 'error' in result:
+            form.add_error('atcoder_username', result['error'])
+            return self.form_invalid(form)
+        self.object.refresh_from_db()
+        return HttpResponseRedirect(self.get_success_url())

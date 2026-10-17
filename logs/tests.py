@@ -166,7 +166,8 @@ class GoalFlowTest(TestCase):
         self.assertContains(response, reverse("goals"))
         self.assertContains(response, "目標設定")
 
-    def test_ログイン中は上部に目標の進捗を表示する(self):
+    @patch("logs.context_processors.timezone.localdate", return_value=date(2026, 9, 15))
+    def test_ログイン中は上部に目標の進捗を表示する(self, localdate):
         self.create_goal(title="上部に表示する目標", target_count=2)
         self.client.force_login(self.user)
 
