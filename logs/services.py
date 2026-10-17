@@ -6,13 +6,17 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone as django_timezone
-from logs.models import ContestAttempt, Log, Problem, SubmissionSyncState
+from logs.models import Contest, ContestAttempt, Goal, GoalAC, Log, Problem, SubmissionSyncState
+from logs.goal_progress import calculate_goal_progress, contest_type_for, goal_window
+from collections import defaultdict
 import math
 
 SYNC_COOLDOWN = timedelta(minutes=5)
+SUBMISSION_LOOKBACK_SECONDS = 60 * 60
+SUBMISSION_PAGE_LIMIT = 100
 
 
-def sync_submissions(user):
+def sync_submissions(user, *, full_refresh=False):
     """Reserve a user's sync before making any external requests."""
     with transaction.atomic():
         locked_user = get_user_model().objects.select_for_update().get(pk=user.pk)
@@ -39,7 +43,11 @@ def sync_submissions(user):
             }
 
     try:
+        if full_refresh:
+            return _fetch_and_save_submissions(locked_user, atcoder_name, full_refresh=True)
         return _fetch_and_save_submissions(locked_user, atcoder_name)
+    except UnknownProblemError:
+        return {"code": "unknown_problem", "error": "問題情報が不足しているため同期できませんでした。問題情報の更新を管理者に依頼してください。"}
     except (requests.RequestException, ValueError):
         return {"code": "fetch_failed", "error": "提出履歴を取得できませんでした。時間をおいて再実行してください。"}
     finally:
@@ -58,120 +66,154 @@ def change_atcoder_username(user, new_name):
                 return {"error": "同期実行中はAtCoderユーザー名を変更できません。"}
             Log.objects.filter(user=locked_user).delete()
             ContestAttempt.objects.filter(user=locked_user).delete()
+            GoalAC.objects.filter(goal__user=locked_user).delete()
+            Goal.objects.filter(user=locked_user).update(submissions_checked=False, achieved_at=None)
+            state.last_submission_epoch = 0
+            state.last_succeeded_at = None
+            state.save(update_fields=["last_submission_epoch", "last_succeeded_at"])
         locked_user.atcoder_username = new_name or None
         locked_user.save(update_fields=["atcoder_username"])
     return {"code": "success"}
 
 
-def _fetch_and_save_submissions(user, atcoder_name):
-    all_submissions = []
-    headers = {"User-Agent": "atcoder-tracker/0.1"}
-    params = {"user": atcoder_name, "from_second": 0}
-    cnt = 0
+class UnknownProblemError(ValueError):
+    pass
 
-    while True:
+
+def _fetch_and_save_submissions(user, atcoder_name, *, full_refresh=False):
+    state = SubmissionSyncState.objects.get(user=user)
+    # Snapshot IDs before fetching. Goals created during this sync are checked next time.
+    goals = list(Goal.objects.filter(user=user))
+    from_second = 0 if full_refresh else max(
+        0, state.last_submission_epoch - SUBMISSION_LOOKBACK_SECONDS,
+    )
+    for goal in goals:
+        if not goal.submissions_checked:
+            from_second = min(from_second, int(goal_window(goal)[0].timestamp()))
+    submissions = _fetch_submissions(atcoder_name, max(0, from_second))
+    with transaction.atomic():
+        # Serialize with goal deletion; never mark a newly created goal as checked.
+        current_goals = list(Goal.objects.select_for_update().filter(
+            user=user, pk__in=[goal.pk for goal in goals],
+        ))
+        result = _save_submissions(user, submissions, goals=current_goals)
+        newest = max((s["epoch_second"] for s in submissions), default=0)
+        SubmissionSyncState.objects.filter(pk=state.pk).update(
+            last_submission_epoch=max(state.last_submission_epoch, newest),
+            last_succeeded_at=django_timezone.now(),
+        )
+        Goal.objects.filter(pk__in=[goal.pk for goal in current_goals]).update(submissions_checked=True)
+        for goal in current_goals:
+            calculate_goal_progress(goal)
+    return result
+
+
+def _fetch_submissions(atcoder_name, from_second):
+    by_id = {}
+    headers = {"User-Agent": "atcoder-tracker/0.1"}
+    required = {"id", "problem_id", "contest_id", "result", "epoch_second"}
+    for page in range(SUBMISSION_PAGE_LIMIT):
+        if page:
+            time.sleep(1.1)
         response = requests.get(
             "https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions",
-            params=params, headers=headers, timeout=(5, 30),
+            params={"user": atcoder_name, "from_second": from_second},
+            headers=headers, timeout=(5, 30),
         )
         response.raise_for_status()
         submissions = response.json()
-        required = {"problem_id", "contest_id", "result", "epoch_second"}
         if not isinstance(submissions, list) or any(
             not isinstance(item, dict)
             or not required.issubset(item)
-            or not all(isinstance(item[key], str) for key in ("problem_id", "contest_id", "result"))
+            or not all(isinstance(item[key], str) and item[key] for key in ("problem_id", "contest_id", "result"))
+            or type(item["id"]) is not int or item["id"] < 0
             or type(item["epoch_second"]) is not int
-            or not 0 <= item["epoch_second"] <= 253402300799
+            or not from_second <= item["epoch_second"] <= 253402300799
             for item in submissions
         ):
             raise ValueError("Invalid submissions response")
-        all_submissions.extend(submissions)
+        previous_count = len(by_id)
+        by_id.update((item["id"], item) for item in submissions)
         if len(submissions) < 500:
-            break
-        last = max(submissions, key=lambda s: s["epoch_second"])
-        params["from_second"] = last["epoch_second"] + 1
-        time.sleep(1)
-        cnt += 1
-        if cnt == 100:
-            raise ValueError("Submission pagination limit reached")
+            return sorted(by_id.values(), key=lambda item: (item["epoch_second"], item["id"]))
+        next_second = max(item["epoch_second"] for item in submissions)
+        if next_second <= from_second and len(by_id) == previous_count:
+            raise ValueError("Submission pagination did not advance")
+        # Include the last second again, so submissions on the boundary are not skipped.
+        from_second = next_second
+    raise ValueError("Submission pagination limit reached")
 
-    problem_dictionary = {}
-    for s in all_submissions:
-        problem_dictionary.setdefault(s["problem_id"], []).append(s)
 
-    created_count = 0
-    updated_count = 0
-    for problem_id, subs in problem_dictionary.items():
-        is_correct = any(s["result"] == "AC" for s in subs)
-        ac_subs = [s for s in subs if s["result"] == "AC"]
-        last_second = max(s["epoch_second"] for s in subs)
-        last_submitted_date = datetime.fromtimestamp(last_second, tz=timezone.utc)
-        if ac_subs:
-            first_second = min(s["epoch_second"] for s in ac_subs)
-            first_ac_date = datetime.fromtimestamp(first_second, tz=timezone.utc)
-        else:
-            first_ac_date = None
+def _merge_attempt(model, lookup, submissions):
+    ac_dates = [datetime.fromtimestamp(s["epoch_second"], tz=timezone.utc)
+                for s in submissions if s["result"] == "AC"]
+    last_date = datetime.fromtimestamp(max(s["epoch_second"] for s in submissions), tz=timezone.utc)
+    defaults = {
+        "is_correct": bool(ac_dates),
+        "first_ac_date": min(ac_dates) if ac_dates else None,
+        "last_ac_date": max(ac_dates) if ac_dates else None,
+        "last_submitted_date": last_date,
+    }
+    if model is Log:
+        defaults["submitted_contest_id"] = submissions[0]["contest_id"]
+    obj, created = model.objects.get_or_create(**lookup, defaults=defaults)
+    if created:
+        return True, False
+    # ACs are accumulated. Rejudging/removing previously observed ACs is out of scope.
+    first_dates = [d for d in (obj.first_ac_date, defaults["first_ac_date"]) if d is not None]
+    last_dates = [d for d in (obj.last_ac_date, obj.first_ac_date, defaults["last_ac_date"]) if d is not None]
+    merged = {
+        "is_correct": obj.is_correct or bool(ac_dates),
+        "first_ac_date": min(first_dates) if first_dates else None,
+        "last_ac_date": max(last_dates) if last_dates else None,
+        "last_submitted_date": max(obj.last_submitted_date, last_date),
+    }
+    changed = [key for key, value in merged.items() if getattr(obj, key) != value]
+    if changed:
+        for key in changed:
+            setattr(obj, key, merged[key])
+        obj.save()
+    return False, bool(changed)
 
-        try:
-            problem = Problem.objects.get(problem_id=problem_id)
-        except Problem.DoesNotExist:
-            continue
 
-        log, created = Log.objects.update_or_create(
-            user=user,
-            problem=problem,
-            defaults={
-                "submitted_contest_id": subs[0]["contest_id"],
-                "is_correct": is_correct,
-                "first_ac_date": first_ac_date,
-                "last_submitted_date": last_submitted_date,
-            },
-        )
-        if created:
-            created_count += 1
-        else:
-            updated_count += 1
-
-        submissions_by_contest = {}
-        for submission in subs:
-            submissions_by_contest.setdefault(submission["contest_id"], []).append(
-                submission
-            )
-        for contest_id, contest_submissions in submissions_by_contest.items():
-            contest_ac_submissions = [
-                submission
-                for submission in contest_submissions
-                if submission["result"] == "AC"
-            ]
-            contest_last_second = max(
-                submission["epoch_second"] for submission in contest_submissions
-            )
-            contest_first_ac_date = None
-            if contest_ac_submissions:
-                contest_first_ac_date = datetime.fromtimestamp(
-                    min(
-                        submission["epoch_second"]
-                        for submission in contest_ac_submissions
-                    ),
-                    tz=timezone.utc,
-                )
-            ContestAttempt.objects.update_or_create(
-                user=user,
-                problem=problem,
-                submitted_contest_id=contest_id,
-                defaults={
-                    "is_correct": bool(contest_ac_submissions),
-                    "first_ac_date": contest_first_ac_date,
-                    "last_submitted_date": datetime.fromtimestamp(
-                        contest_last_second,
-                        tz=timezone.utc,
-                    ),
-                },
-            )
-
+def _save_submissions(user, submissions, *, goals):
+    problems = Problem.objects.in_bulk({s["problem_id"] for s in submissions})
+    if any(s["problem_id"] not in problems for s in submissions):
+        raise UnknownProblemError("Update problem data before syncing")
+    by_problem = defaultdict(list)
+    by_contest = defaultdict(list)
+    for submission in submissions:
+        by_problem[submission["problem_id"]].append(submission)
+        by_contest[(submission["problem_id"], submission["contest_id"])].append(submission)
+    created_count = updated_count = 0
+    for problem_id, items in by_problem.items():
+        created, updated = _merge_attempt(Log, {"user": user, "problem": problems[problem_id]}, items)
+        created_count += created
+        updated_count += updated
+    for (problem_id, contest_id), items in by_contest.items():
+        _merge_attempt(ContestAttempt, {
+            "user": user, "problem": problems[problem_id], "submitted_contest_id": contest_id,
+        }, items)
+    contests = Contest.objects.in_bulk({s["contest_id"] for s in submissions})
+    for goal in goals:
+        start, end = goal_window(goal)
+        for submission in submissions:
+            if submission["result"] != "AC":
+                continue
+            problem = problems[submission["problem_id"]]
+            ac_date = datetime.fromtimestamp(submission["epoch_second"], tz=timezone.utc)
+            if not start <= ac_date < end:
+                continue
+            if problem.display_difficulty is None or not goal.difficulty_min <= problem.display_difficulty <= goal.difficulty_max:
+                continue
+            contest_id = submission["contest_id"]
+            if contest_type_for(contest_id, contests.get(contest_id)) not in goal.contest_types:
+                continue
+            record, created = GoalAC.objects.get_or_create(goal=goal, problem=problem, defaults={"ac_date": ac_date})
+            if not created and ac_date < record.ac_date:
+                record.ac_date = ac_date
+                record.save(update_fields=["ac_date"])
     return {"code": "success", "created": created_count, "updated": updated_count}
-
 
 
 def correct_difficulty(difficulty):

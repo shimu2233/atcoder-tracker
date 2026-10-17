@@ -107,7 +107,15 @@ class GoalFlowTest(TestCase):
             "difficulty_max": 1199,
         }
         values.update(overrides)
-        return Goal.objects.create(**values)
+        goal = Goal.objects.create(**values)
+        # Populate the same per-goal record that a successful sync now writes.
+        from logs.services import _save_submissions
+        _save_submissions(self.user, [{
+            "id": 1, "problem_id": self.problem.pk,
+            "contest_id": self.contest.pk, "result": "AC",
+            "epoch_second": int(self.first_ac_at.timestamp()),
+        }], goals=[goal])
+        return goal
 
     def test_条件内の初ACで目標を達成する(self):
         goal = self.create_goal()
@@ -391,18 +399,21 @@ class SubmissionContestTrackingTest(TestCase):
                 "contest_id": "abc086",
                 "result": "WA",
                 "epoch_second": 100,
+                "id": 100,
             },
             {
                 "problem_id": "abc086_a",
                 "contest_id": "abs",
                 "result": "WA",
                 "epoch_second": 200,
+                "id": 200,
             },
             {
                 "problem_id": "abc086_a",
                 "contest_id": "abs",
                 "result": "AC",
                 "epoch_second": 300,
+                "id": 300,
             },
         ]
         get.return_value = response

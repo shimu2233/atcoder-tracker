@@ -63,6 +63,7 @@ class Log(models.Model):
     submitted_contest_id=models.CharField(max_length=50)
     is_correct=models.BooleanField(default=False)
     first_ac_date=models.DateTimeField(null=True,blank=True)
+    last_ac_date = models.DateTimeField(null=True, blank=True)
     last_submitted_date=models.DateTimeField()
     created_at=models.DateTimeField(auto_now_add=True)
     updated_at=models.DateTimeField(auto_now=True)
@@ -81,6 +82,7 @@ class ContestAttempt(models.Model):
     submitted_contest_id = models.CharField(max_length=100)
     is_correct = models.BooleanField(default=False)
     first_ac_date = models.DateTimeField(null=True, blank=True)
+    last_ac_date = models.DateTimeField(null=True, blank=True)
     last_submitted_date = models.DateTimeField()
 
     class Meta:
@@ -109,6 +111,7 @@ class Goal(models.Model):
     difficulty_min = models.PositiveIntegerField()
     difficulty_max = models.PositiveIntegerField()
     achieved_at = models.DateTimeField(null=True, blank=True)
+    submissions_checked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -137,3 +140,16 @@ class SubmissionSyncState(models.Model):
     )
     last_started_at = models.DateTimeField(null=True, blank=True)
     is_running = models.BooleanField(default=False)
+    last_submission_epoch = models.BigIntegerField(default=0)
+    last_succeeded_at = models.DateTimeField(null=True, blank=True)
+
+
+class GoalAC(models.Model):
+    goal = models.ForeignKey(Goal, on_delete=models.CASCADE, related_name="ac_records")
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
+    ac_date = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["goal", "problem"], name="unique_goal_problem_ac")
+        ]
