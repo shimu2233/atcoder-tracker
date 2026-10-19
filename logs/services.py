@@ -10,10 +10,14 @@ from logs.models import Contest, ContestAttempt, Goal, GoalAC, Log, Problem, Sub
 from logs.goal_progress import calculate_goal_progress, contest_type_for, goal_window
 from collections import defaultdict
 import math
+import logging
+import re
+from bs4 import BeautifulSoup
 
 SYNC_COOLDOWN = timedelta(minutes=5)
 SUBMISSION_LOOKBACK_SECONDS = 60 * 60
 SUBMISSION_PAGE_LIMIT = 100
+logger = logging.getLogger(__name__)
 
 
 def sync_submissions(user, *, full_refresh=False):
@@ -47,7 +51,7 @@ def sync_submissions(user, *, full_refresh=False):
             return _fetch_and_save_submissions(locked_user, atcoder_name, full_refresh=True)
         return _fetch_and_save_submissions(locked_user, atcoder_name)
     except UnknownProblemError:
-        return {"code": "unknown_problem", "error": "問題情報が不足しているため同期できませんでした。問題情報の更新を管理者に依頼してください。"}
+        return {"code": "unknown_problem", "error": "未登録の問題情報をAtCoder公式から取得できなかったため、同期を完了できませんでした。時間をおいて再実行してください。"}
     except (requests.RequestException, ValueError):
         return {"code": "fetch_failed", "error": "提出履歴を取得できませんでした。時間をおいて再実行してください。"}
     finally:
@@ -91,7 +95,12 @@ def _fetch_and_save_submissions(user, atcoder_name, *, full_refresh=False):
         if not goal.submissions_checked:
             from_second = min(from_second, int(goal_window(goal)[0].timestamp()))
     submissions = _fetch_submissions(atcoder_name, max(0, from_second))
+    # Fetch HTML before opening the save transaction. A failure must not advance the cursor.
+    missing_problems = _fetch_missing_problems(submissions)
     with transaction.atomic():
+        for problem_id, defaults in missing_problems.items():
+            # Do not overwrite metadata inserted concurrently by fetch_problems.
+            Problem.objects.get_or_create(problem_id=problem_id, defaults=defaults)
         # Serialize with goal deletion; never mark a newly created goal as checked.
         current_goals = list(Goal.objects.select_for_update().filter(
             user=user, pk__in=[goal.pk for goal in goals],
@@ -106,6 +115,59 @@ def _fetch_and_save_submissions(user, atcoder_name, *, full_refresh=False):
         for goal in current_goals:
             calculate_goal_progress(goal)
     return result
+
+
+def _fetch_missing_problems(submissions):
+    candidates = defaultdict(list)
+    for submission in submissions:
+        if submission["contest_id"] not in candidates[submission["problem_id"]]:
+            candidates[submission["problem_id"]].append(submission["contest_id"])
+    known = set(Problem.objects.filter(problem_id__in=candidates).values_list("problem_id", flat=True))
+    metadata = {}
+    requested = False
+    for problem_id in sorted(candidates.keys() - known):
+        for contest_id in candidates[problem_id]:
+            # IDs are API data, not arbitrary URL paths.
+            if not all(re.fullmatch(r"[A-Za-z0-9_-]{1,50}", value) for value in (problem_id, contest_id)):
+                continue
+            if requested:
+                time.sleep(1.1)
+            requested = True
+            url = f"https://atcoder.jp/contests/{contest_id}/tasks/{problem_id}"
+            try:
+                response = requests.get(
+                    url, headers={"User-Agent": "atcoder-tracker/0.1"},
+                    timeout=(5, 30), allow_redirects=False,
+                )
+                response.raise_for_status()
+                if response.status_code != 200:
+                    continue
+                soup = BeautifulSoup(response.text, "html.parser")
+                heading = soup.select_one("#main-container .h2")
+                if heading is None or soup.select_one("#task-statement") is None:
+                    continue
+                # Editorial buttons are children of the heading on official task pages.
+                for element in heading.select("a, button"):
+                    element.decompose()
+                title = heading.get_text(" ", strip=True)
+                index, separator, name = title.partition(" - ")
+                if not separator or not index.strip() or not name.strip():
+                    continue
+                if len(index.strip()) > 50 or len(name.strip()) > 200:
+                    continue
+                metadata[problem_id] = {
+                    "problem_index": index.strip(), "problem_name": name.strip(),
+                    "contest_id": contest_id,
+                    # Difficulty is unknown; do not invent a value for goal matching.
+                    "difficulty": None, "display_difficulty": None,
+                }
+                break
+            except requests.RequestException:
+                logger.warning("Official problem lookup failed: %s / %s", contest_id, problem_id)
+        if problem_id not in metadata:
+            logger.warning("Unable to resolve missing problem: %s", problem_id)
+            raise UnknownProblemError(f"Unable to resolve problem: {problem_id}")
+    return metadata
 
 
 def _fetch_submissions(atcoder_name, from_second):

@@ -40,7 +40,7 @@ class IncrementalSyncTests(TestCase):
         response.json.return_value = items
         with patch("logs.services.requests.get", return_value=response) as get:
             result = sync_submissions(self.user, **kwargs)
-            return result, get.call_args.kwargs["params"]["from_second"]
+            return result, get.call_args_list[0].kwargs["params"]["from_second"]
 
     def test_initial_sync_then_lookback_and_idempotence(self):
         item = submission(1, self.now)
