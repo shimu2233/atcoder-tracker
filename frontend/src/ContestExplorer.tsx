@@ -101,11 +101,11 @@ export function ContestExplorer({
           ))}
         </Tabs>
         <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="contest-order-label">結果の順番</InputLabel>
+          <InputLabel id="contest-order-label">最終提出日時順</InputLabel>
           <Select
             labelId="contest-order-label"
             value={order}
-            label="結果の順番"
+            label="最終提出日時順"
             onChange={(event) => setOrder(event.target.value as "newest" | "oldest")}
           >
             <MenuItem value="newest">新しい順</MenuItem>
@@ -131,7 +131,11 @@ export function ContestExplorer({
                   <Typography fontWeight={700}>{contest.title}</Typography>
                   <Chip size="small" label={contest.contest_id} variant="outlined" />
                   <Typography variant="caption" color="text.secondary">
-                    最終提出 {new Date(contest.last_submitted_at).toLocaleDateString("ja-JP")}
+                    最終提出{" "}
+                    {new Date(contest.last_submitted_at).toLocaleDateString("ja-JP", {
+                      timeZone: "Asia/Tokyo",
+                    })}
+                    （日本時間）
                   </Typography>
                 </Stack>
               </AccordionSummary>

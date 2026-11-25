@@ -27,19 +27,29 @@ export function Dashboard({ data }: { data: DashboardData }) {
         </Tabs>
         <CardContent>
           <Stack spacing={3}>
-            <Stack spacing={1.5}>
-              {data.difficulty_stats.map((stat) => (
-                <Stack key={stat.band} direction="row" spacing={2} alignItems="center">
-                  <Box sx={{ width: 90, flexShrink: 0 }}>{stat.band}</Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={stat.ac_rate}
-                    sx={{ flex: 1, height: 12, borderRadius: 999 }}
-                  />
-                  <Box sx={{ width: 48, textAlign: "right" }}>{stat.ac_rate}%</Box>
-                </Stack>
-              ))}
-            </Stack>
+
+            {data.difficulty_stats.length === 0 ? (
+              <Alert severity="info">
+                集計対象のデータがありません。AtCoderユーザー名を設定し、
+                上部の「AtCoderデータを同期」を実行してください。
+                同期後も表示されない場合は、難易度集計の対象となる提出履歴がない可能性があります。
+              </Alert>
+            ) : (
+              <Stack spacing={1.5}>
+                {data.difficulty_stats.map((stat) => (
+                  <Stack key={stat.band} direction="row" spacing={2} alignItems="center">
+                    <Box sx={{ width: 90, flexShrink: 0 }}>{stat.band}</Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={stat.ac_rate}
+                      sx={{ flex: 1, height: 12, borderRadius: 999 }}
+                    />
+                    <Box sx={{ width: 48, textAlign: "right" }}>{stat.ac_rate}%</Box>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+            
             <TableContainer sx={{ overflowX: "auto" }}>
               <Table size="small" aria-label="難易度別の成績">
                 <TableHead>
